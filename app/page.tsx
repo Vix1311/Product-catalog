@@ -10,9 +10,9 @@ import Link from "next/link";
 import MindmapSection from "@/components/MindmapSection";
 import { Button } from "@/components/ui/button";
 import { logoutApi } from "./services/auth.service";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
-export default function HomePage() {
+function HomeContent() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
   // 1. Kiểm tra trạng thái khi vừa vào trang
@@ -41,6 +41,7 @@ export default function HomePage() {
       setIsLoggedIn(false); // 👈 BẮT BUỘC: Đổi State ngay lập tức để UI render lại
     }
   };
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans flex flex-col justify-between">
       <div>
@@ -55,7 +56,6 @@ export default function HomePage() {
 
         {/* Các phần giới hạn chiều ngang chuẩn */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
-          {" "}
           <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-8 flex flex-col md:flex-row justify-between items-center gap-6 shadow-sm">
             <div>
               <h2 className="text-2xl font-bold text-[#4A2E16]">
@@ -86,5 +86,19 @@ export default function HomePage() {
       {/* Chân Trang */}
       <Footer />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 text-sm text-gray-500 font-semibold">
+          Đang tải trang...
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import MegaMenu, { categoriesList } from "@/components/MegaMenu";
@@ -14,7 +14,6 @@ import {
   IconLogin,
   IconChevronDown,
 } from "@tabler/icons-react";
-import { logoutApi } from "@/app/services/auth.service";
 
 interface StickyHeaderProps {
   searchQuery?: string;
@@ -24,7 +23,7 @@ interface StickyHeaderProps {
   cartCount?: number;
 }
 
-export default function StickyHeader({
+function StickyHeaderContent({
   searchQuery: externalSearchQuery,
   setSearchQuery: externalSetSearchQuery,
   isLoggedIn,
@@ -92,13 +91,13 @@ export default function StickyHeader({
     router.push(`/catalog?${params.toString()}`);
   };
 
-  // 🚀 XỬ LÝ ĐĂNG XUẤT THỰC TẾ
+  // XỬ LÝ ĐĂNG XUẤT THỰC TẾ
   const handleLogoutAction = async () => {
     if (onLogout) {
       await onLogout(); // Gọi hàm logout từ Component Cha truyền xuống
     }
     setIsMobileMenuOpen(false); // Đóng Drawer nếu ở Mobile
-    router.push("/"); // Chuyển hướng về trang Login
+    router.push("/"); // Chuyển hướng về trang chủ
   };
 
   return (
@@ -171,7 +170,7 @@ export default function StickyHeader({
               /* ĐÃ ĐĂNG NHẬP -> HIỂN THỊ 2 NÚT THÊM MỚI VÀ THOÁT */
               <div className="flex items-center gap-2.5">
                 <Link
-                  href="/admin                  "
+                  href="/admin"
                   className="px-3.5 py-2 bg-[#ECA921] hover:bg-[#D89512] text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
                 >
                   <IconPlus className="w-4 h-4" /> Thêm mới
@@ -265,7 +264,7 @@ export default function StickyHeader({
             )}
           </div>
 
-          {/* Cụm Nút Mobile: Chưa đăng nhập -> Nút Login | Đã đăng nhập -> Nút Thêm mới + Thoát */}
+          {/* Cụm Nút Mobile */}
           <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
             {!isLoggedIn ? (
               <Link
@@ -278,7 +277,7 @@ export default function StickyHeader({
             ) : (
               <div className="flex flex-col gap-2">
                 <Link
-                  href="/AddProduct"
+                  href="/admin"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="w-full py-2.5 bg-[#ECA921] hover:bg-[#D89512] text-white rounded-xl text-sm font-semibold text-center transition-colors flex items-center justify-center gap-2 shadow-sm"
                 >
@@ -296,5 +295,18 @@ export default function StickyHeader({
         </div>
       )}
     </header>
+  );
+}
+
+// Bọc Suspense ngay tại export default của StickyHeader
+export default function StickyHeader(props: StickyHeaderProps) {
+  return (
+    <Suspense
+      fallback={
+        <header className="sticky top-0 z-40 h-16 bg-white/95 border-b border-amber-100 shadow-sm" />
+      }
+    >
+      <StickyHeaderContent {...props} />
+    </Suspense>
   );
 }
