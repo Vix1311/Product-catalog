@@ -42,6 +42,7 @@ interface ApiVariant {
   productId: string;
   brandId: string;
   brand: ApiBrand;
+  isNew?: boolean;
 }
 
 interface ApiProduct {
@@ -66,6 +67,18 @@ interface CatalogProduct extends ProductDetail {
   subCategorySlug?: string;
   hasRealImage: boolean;
   rawProduct: ApiProduct;
+}
+
+// Interface riêng cho State của Form Biến thể
+interface VariantFormItem {
+  id: string;
+  productId: string;
+  brandId: string;
+  brandName: string;
+  price?: number | string;
+  packaging: string;
+  brandNote: string;
+  isNew?: boolean;
 }
 
 const categoryTitleMap: Record<string, string> = {
@@ -175,18 +188,8 @@ function AdminCatalogContent() {
     imageUrl: "",
   });
 
-  // State Form Danh sách Variants
-  const [variantForms, setVariantForms] = useState<
-    {
-      id: string;
-      productId: string;
-      brandId: string;
-      brandName: string;
-      price: number | string;
-      packaging: string;
-      brandNote: string;
-    }[]
-  >([]);
+  // State Form Danh sách Variants (Đã dùng VariantFormItem có isNew?: boolean)
+  const [variantForms, setVariantForms] = useState<VariantFormItem[]>([]);
 
   useEffect(() => {
     setSearchTerm(searchFromUrl);
@@ -443,6 +446,7 @@ function AdminCatalogContent() {
         price: v.price ?? 0,
         packaging: v.packaging || "",
         brandNote: v.brandNote || "",
+        isNew: false,
       })),
     );
     setIsFormModalOpen(true);
@@ -588,7 +592,7 @@ function AdminCatalogContent() {
       },
       body: JSON.stringify({
         productId,
-        brandId: newVariantData.brandId, // cho phép chọn brandId / truyền chuỗi
+        brandId: newVariantData.brandId,
         packaging: newVariantData.packaging,
         brandNote: newVariantData.brandNote,
       }),
@@ -1220,7 +1224,6 @@ function AdminCatalogContent() {
                     />
                   </div>
 
-                  {/* CHỈNH SỬA BIẾN THỂ */}
                   {/* CHỈNH SỬA & THÊM MỚI BIẾN THỂ */}
                   {editingProduct && (
                     <div className="pt-4 border-t border-gray-200 space-y-3">
@@ -1228,20 +1231,20 @@ function AdminCatalogContent() {
                         <h3 className="font-extrabold text-[#4A2E16] uppercase text-xs">
                           Biến thể theo Thương hiệu (Product Variants)
                         </h3>
-                        {/* 🎯 Nút dấu cộng mở 2 ô input trống để thêm variant mới */}
                         <button
                           type="button"
                           onClick={() => {
                             setVariantForms([
                               ...variantForms,
                               {
-                                id: "", // ID trống để nhận diện là tạo mới
+                                id: "",
                                 productId: editingProduct.id,
                                 brandId: "",
                                 brandName: "Thương hiệu mới",
+                                price: 0,
                                 packaging: "",
                                 brandNote: "",
-                                isNew: true, // Đánh dấu là variant mới thêm
+                                isNew: true,
                               },
                             ]);
                           }}
