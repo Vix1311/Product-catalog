@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import FloatingContact from "@/components/FloatingContact";
+import Providers from "./providers";
 
 // Khởi tạo font
 const jakarta = Plus_Jakarta_Sans({
@@ -22,8 +23,7 @@ export default function RootLayout({
       <body
         className={`${jakarta.className} antialiased bg-gray-50 text-gray-900`}
       >
-        {children}
-        <FloatingContact />
+        <Providers>{children}</Providers> <FloatingContact />
       </body>
     </html>
   );

@@ -48,7 +48,8 @@ export default function FloatingContact() {
   ];
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    /* 🎯 1. Thêm pointer-events-none ở đây để vùng khoảng không không che đè lên nội dung bên dưới */
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none">
       {/* 1. MENU CÁC KÊNH LIÊN HỆ */}
       <div
         className={`flex flex-col gap-3 mb-4 transition-all duration-300 transform origin-bottom-right ${
@@ -63,7 +64,7 @@ export default function FloatingContact() {
             href={item.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 group"
+            className="flex items-center gap-3 group pointer-events-auto"
           >
             {/* Nhãn chữ bên trái */}
             <div className="bg-gray-900/90 text-white text-xs font-semibold px-3 py-2 rounded-xl shadow-md backdrop-blur-sm opacity-90 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-amber-100/20">
@@ -85,13 +86,12 @@ export default function FloatingContact() {
         ))}
       </div>
 
-      {/* 2. NÚT CHÍNH NỔI (TRIGGER BUTTON) */}
+      {/* 🎯 2. Bật pointer-events-auto riêng cho nút tròn chính để vẫn nhận click mở menu */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Liên hệ Khánh An"
-        className="relative group w-14 h-14 rounded-full bg-[#ECA921] text-white flex items-center justify-center shadow-2xl hover:bg-[#D89512] transition-all duration-300 focus:outline-none border-2 border-white"
+        className="pointer-events-auto cursor-pointer relative group w-14 h-14 rounded-full bg-[#ECA921] text-white flex items-center justify-center shadow-2xl hover:bg-[#D89512] transition-all duration-300 focus:outline-none border-2 border-white"
       >
-        {/* Icon Tabler: Headset / X */}
         <div className="transition-transform duration-300 transform">
           {isOpen ? (
             <IconX className="w-6 h-6 text-white" stroke={2.5} />

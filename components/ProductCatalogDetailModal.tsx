@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { usePathname } from "next/navigation";
 import {
   IconX,
   IconCheck,
@@ -8,6 +9,8 @@ import {
   IconWorld,
   IconBox,
   IconStars,
+  IconEdit,
+  IconTrash,
 } from "@tabler/icons-react";
 
 export interface ProductDetail {
@@ -30,10 +33,23 @@ export interface ProductDetail {
 interface ModalProps {
   product: ProductDetail | null;
   onClose: () => void;
+  isAdmin?: boolean;
+  onEdit?: (product: ProductDetail) => void;
+  onDelete?: (product: ProductDetail) => void;
 }
 
-export default function ProductDetailModal({ product, onClose }: ModalProps) {
+export default function ProductDetailModal({
+  product,
+  onClose,
+  isAdmin: propIsAdmin,
+  onEdit,
+  onDelete,
+}: ModalProps) {
+  const pathname = usePathname();
+
   if (!product) return null;
+
+  const isAdminMode = propIsAdmin ?? pathname?.startsWith("/admin");
 
   // Helper tách chuỗi phân cách bởi dấu ';' thành mảng danh sách
   const parseList = (text: string) =>
@@ -45,13 +61,47 @@ export default function ProductDetailModal({ product, onClose }: ModalProps) {
       : [];
 
   const thuongHieuList = parseList(product.thuongHieuXuatXu);
-  const quyCachThungList = parseList(product.quyCachThung);
+  const rawQuyCachList = parseList(product.quyCachThung);
   const phuHopMonList = parseList(product.phuHopMon);
-  const kenhQuanList = parseList(product.phuHopKenhQuan);
+
+  // 🎯 ĐỒNG BỘ HIỂN THỊ: GẮN THƯƠNG HIỆU VÀO TRƯỚC SỐ KÝ / THÙNG NẾU CHƯA CÓ
+  const quyCachThungList = useMemoFormattedQuyCach(
+    thuongHieuList,
+    rawQuyCachList,
+  );
+
+  function useMemoFormattedQuyCach(brands: string[], specs: string[]) {
+    return specs.map((spec, idx) => {
+      // Nếu spec đã có chứa tên thương hiệu rồi thì giữ nguyên
+      const matchingBrand = brands.find((b) => {
+        const brandNameOnly = b.split(":")[0].trim();
+        return spec.toLowerCase().includes(brandNameOnly.toLowerCase());
+      });
+
+      if (matchingBrand) {
+        return spec;
+      }
+
+      // Nếu chưa có, lấy thương hiệu tương ứng theo index gộp vào trước số ký/thùng
+      const brandFull = brands[idx] || brands[0];
+      if (brandFull) {
+        const brandNameOnly = brandFull.split(":")[0].trim();
+        return `${brandNameOnly}: ${spec}`;
+      }
+
+      return spec;
+    });
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-7xl rounded-2xl shadow-2xl overflow-hidden border border-amber-100 flex flex-col max-h-[90vh]">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white w-full max-w-7xl rounded-2xl shadow-2xl overflow-hidden border border-amber-100 flex flex-col max-h-[90vh]"
+      >
         {/* Header Modal */}
         <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white p-5 flex items-center justify-between border-b border-amber-500/30">
           <div>
@@ -71,8 +121,9 @@ export default function ProductDetailModal({ product, onClose }: ModalProps) {
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-full bg-white/10 hover:bg-amber-500/20 text-gray-300 hover:text-white transition-colors"
+            className="cursor-pointer p-2 rounded-full bg-white/10 hover:bg-amber-500/20 text-gray-300 hover:text-white transition-colors"
           >
             <IconX className="w-6 h-6" />
           </button>
@@ -91,7 +142,7 @@ export default function ProductDetailModal({ product, onClose }: ModalProps) {
               />
             </div>
 
-            {/* Khung Thông Số B2B (Đã tách dòng & Badges) */}
+            {/* Khung Thông Số B2B */}
             <div className="lg:col-span-7 bg-amber-50/40 p-5 rounded-2xl border border-amber-100/80 space-y-4">
               {/* 1. Thương hiệu & Xuất xứ */}
               <div className="space-y-1.5">
@@ -117,7 +168,7 @@ export default function ProductDetailModal({ product, onClose }: ModalProps) {
                 </div>
               </div>
 
-              {/* 2. Quy cách thùng / Nguồn */}
+              {/* 2. Quy cách thùng / Nguồn (Đã ưu tiên hiển thị thương hiệu lên trước số ký) */}
               <div className="space-y-1.5 pt-2 border-t border-amber-200/40">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
                   <IconBox className="w-4 h-4 text-[#ECA921]" />
@@ -228,14 +279,40 @@ export default function ProductDetailModal({ product, onClose }: ModalProps) {
             Cung cấp bởi{" "}
             <strong className="text-gray-900 font-bold">Khánh An Foods</strong>
           </span>
-          <a
-            href="https://zalo.me/0900123456"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-6 py-2.5 bg-[#ECA921] hover:bg-[#D89512] text-white rounded-xl text-xs font-bold transition-colors shadow-md flex items-center gap-2"
-          >
-            <IconCheck className="w-4 h-4" /> Yêu cầu báo giá 
-          </a>
+
+          {isAdminMode ? (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onEdit?.(product);
+                }}
+                className="cursor-pointer px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-md flex items-center gap-2"
+              >
+                <IconEdit className="w-4 h-4" /> Chỉnh sửa sản phẩm
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onDelete?.(product);
+                }}
+                className="cursor-pointer px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors shadow-md flex items-center gap-2"
+              >
+                <IconTrash className="w-4 h-4" /> Xóa sản phẩm
+              </button>
+            </div>
+          ) : (
+            <a
+              href="https://zalo.me/0900123456"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cursor-pointer px-6 py-2.5 bg-[#ECA921] hover:bg-[#D89512] text-white rounded-xl text-xs font-bold transition-colors shadow-md flex items-center gap-2"
+            >
+              <IconCheck className="w-4 h-4" /> Yêu cầu báo giá
+            </a>
+          )}
         </div>
       </div>
     </div>

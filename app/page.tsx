@@ -9,18 +9,43 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import MindmapSection from "@/components/MindmapSection";
 import { Button } from "@/components/ui/button";
+import { logoutApi } from "./services/auth.service";
+import { useEffect, useState } from "react";
 
 export default function HomePage() {
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+
+  // 1. Kiểm tra trạng thái khi vừa vào trang
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem("accessToken");
+      const loggedInState = localStorage.getItem("isLoggedIn");
+      setIsLoggedIn(!!(token && loggedInState === "true"));
+    };
+
+    // Kiểm tra lần đầu khi mount
+    checkAuth();
+
+    // Lắng nghe sự kiện đăng nhập/đăng xuất
+    window.addEventListener("storage", checkAuth);
+    return () => window.removeEventListener("storage", checkAuth);
+  }, []);
+
+  // 2. Hàm Xử lý Đăng xuất thực sự
+  const handleLogout = async () => {
+    try {
+      await logoutApi(); // Call API Logout & Xóa LocalStorage
+    } catch (error) {
+      console.error("Lỗi logout API:", error);
+    } finally {
+      setIsLoggedIn(false); // 👈 BẮT BUỘC: Đổi State ngay lập tức để UI render lại
+    }
+  };
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans flex flex-col justify-between">
       <div>
         {/* Header Dính */}
-        <StickyHeader
-          searchQuery=""
-          setSearchQuery={() => {}}
-          isLoggedIn={true}
-          onLogout={() => {}}
-        />
+        <StickyHeader isLoggedIn={isLoggedIn} onLogout={handleLogout} />
 
         {/* 1. Hero Banner TRÀN MÀN HÌNH */}
         <HeroBanner />

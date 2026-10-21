@@ -1,15 +1,17 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { loginApi } from "../services/auth.service";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // State ẩn/hiện mật khẩu
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!email || !password) {
@@ -17,19 +19,34 @@ export default function LoginPage() {
       return;
     }
 
-    // Giả lập lưu trạng thái đăng nhập (có thể dùng localStorage hoặc Cookie)
-    localStorage.setItem("isLoggedIn", "true");
+    try {
+      setLoading(true);
+      setError("");
 
-    alert("Đăng nhập thành công!");
+      // 1. Call API Login
+      await loginApi(email, password);
 
-    // Chuyển hướng về trang chủ (nơi nút Thêm mới sẽ xuất hiện)
-    router.replace("/");
+      alert("Đăng nhập thành công!");
+
+      // 2. Bắn sự kiện thông báo LocalStorage đã thay đổi cho các Tab/Component khác
+      window.dispatchEvent(new Event("storage"));
+
+      // 3. Chuyển hướng về trang chủ
+      router.replace("/");
+      router.refresh();
+    } catch (err: any) {
+      console.error(err);
+      setError(
+        err.response?.data?.message || "Email hoặc mật khẩu không chính xác!",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200/60 p-8 space-y-6">
-        {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
             Đăng Nhập
@@ -39,7 +56,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Form Đăng nhập */}
         <form onSubmit={handleLogin} className="space-y-4">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">
@@ -53,7 +69,7 @@ export default function LoginPage() {
             </label>
             <input
               type="email"
-              placeholder="VD: admin@example.com"
+              placeholder="VD: admin@gmail.com"
               className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
               value={email}
               onChange={(e) => {
@@ -78,14 +94,12 @@ export default function LoginPage() {
                   setError("");
                 }}
               />
-              {/* Nút con mắt ẩn/hiện mật khẩu */}
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1"
               >
                 {showPassword ? (
-                  // Icon Mở mắt
                   <svg
                     className="w-5 h-5"
                     fill="none"
@@ -106,7 +120,6 @@ export default function LoginPage() {
                     />
                   </svg>
                 ) : (
-                  // Icon Nhắm mắt (có gạch chéo)
                   <svg
                     className="w-5 h-5"
                     fill="none"
@@ -127,9 +140,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98]"
+            disabled={loading}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98]"
           >
-            Đăng Nhập Ngay
+            {loading ? "Đang xử lý..." : "Đăng Nhập Ngay"}
           </button>
         </form>
       </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import MegaMenu, { categoriesList } from "@/components/MegaMenu";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,37 +14,92 @@ import {
   IconLogin,
   IconChevronDown,
 } from "@tabler/icons-react";
+import { logoutApi } from "@/app/services/auth.service";
 
 interface StickyHeaderProps {
-  searchQuery: string;
-  setSearchQuery: (val: string) => void;
+  searchQuery?: string;
+  setSearchQuery?: (val: string) => void;
   isLoggedIn: boolean;
   onLogout: () => void;
   cartCount?: number;
 }
 
 export default function StickyHeader({
-  searchQuery,
-  setSearchQuery,
+  searchQuery: externalSearchQuery,
+  setSearchQuery: externalSetSearchQuery,
   isLoggedIn,
   onLogout,
   cartCount = 0,
 }: StickyHeaderProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // State quản lý text nhập trong input
+  const [searchValue, setSearchValue] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileCategoryOpen, setIsMobileCategoryOpen] = useState(false);
 
-  // Danh mục ngành hàng B2B Khánh An
-  const mobileCategories = [
-    { name: "Thịt Nhập Khẩu", link: "/catalog?group=thit-nhap-khau" },
-    { name: "Surimi & Chả Cá", link: "/catalog?group=surimi" },
-    { name: "Sauce / Nước Sốt", link: "/catalog?group=sauce" },
-    { name: "Mayonnaise", link: "/catalog?group=mayonnaise" },
-    { name: "Bia & Đồ Uống", link: "/catalog?group=bia" },
-    { name: "Chà Bông Heo / Gà", link: "/catalog?group=cha-bong" },
-    { name: "RTE (Ăn Liền)", link: "/catalog?group=rte" },
-    { name: "RTC (Sơ Chế Sẵn)", link: "/catalog?group=rtc" },
-    { name: "Gia Công OEM / ODM", link: "/catalog?group=oem-odm" },
-  ];
+  // Lấy từ khóa từ URL khi mới load trang
+  useEffect(() => {
+    const searchFromUrl = searchParams.get("search") || "";
+    setSearchValue(searchFromUrl);
+  }, [searchParams]);
+
+  // Xử lý khi người dùng gõ phím tìm kiếm
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchValue(val);
+    if (externalSetSearchQuery) {
+      externalSetSearchQuery(val);
+    }
+  };
+
+  // Submit form tìm kiếm
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = searchValue.trim();
+
+    const currentGroup = searchParams.get("group");
+    const currentSub =
+      searchParams.get("subCategory") || searchParams.get("sub");
+
+    const params = new URLSearchParams();
+    if (currentGroup) params.set("group", currentGroup);
+    if (currentSub) params.set("subCategory", currentSub);
+    if (trimmed) {
+      params.set("search", trimmed);
+    }
+
+    router.push(`/catalog?${params.toString()}`);
+    setIsMobileMenuOpen(false);
+  };
+
+  // Xóa nội dung tìm kiếm
+  const handleClearSearch = () => {
+    setSearchValue("");
+    if (externalSetSearchQuery) {
+      externalSetSearchQuery("");
+    }
+
+    const currentGroup = searchParams.get("group");
+    const currentSub =
+      searchParams.get("subCategory") || searchParams.get("sub");
+
+    const params = new URLSearchParams();
+    if (currentGroup) params.set("group", currentGroup);
+    if (currentSub) params.set("subCategory", currentSub);
+
+    router.push(`/catalog?${params.toString()}`);
+  };
+
+  // 🚀 XỬ LÝ ĐĂNG XUẤT THỰC TẾ
+  const handleLogoutAction = async () => {
+    if (onLogout) {
+      await onLogout(); // Gọi hàm logout từ Component Cha truyền xuống
+    }
+    setIsMobileMenuOpen(false); // Đóng Drawer nếu ở Mobile
+    router.push("/"); // Chuyển hướng về trang Login
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-amber-100 shadow-sm transition-all">
@@ -64,52 +120,65 @@ export default function StickyHeader({
               />
             </Link>
 
-            {/* MegaMenu Desktop (Dùng Hover) */}
+            {/* MegaMenu Desktop */}
             <div className="hidden lg:block">
               <MegaMenu />
             </div>
           </div>
 
           {/* 2. Ô TÌM KIẾM TRUNG TÂM (Desktop) */}
-          <div className="hidden md:flex flex-1 max-w-md relative">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="hidden md:flex flex-1 max-w-md relative"
+          >
             <Input
               type="text"
               placeholder="Tìm kiếm sản phẩm, nhà cung cấp, món ăn..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchValue}
+              onChange={handleInputChange}
               className="w-full pl-9 pr-8 text-sm border-amber-200 focus:border-[#ECA921] bg-amber-50/30 focus:bg-white rounded-full"
             />
-            <IconSearch className="w-4 h-4 text-amber-500 absolute left-3 top-1/2 -translate-y-1/2" />
-            {searchQuery && (
+            <button
+              type="submit"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500 hover:text-[#ECA921]"
+              aria-label="Submit search"
+            >
+              <IconSearch className="w-4 h-4" />
+            </button>
+
+            {searchValue && (
               <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-500 hover:text-gray-600 text-xs"
+                type="button"
+                onClick={handleClearSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-500 hover:text-gray-600 text-xs font-bold"
               >
                 ✕
               </button>
             )}
-          </div>
+          </form>
 
           {/* 3. ACTION BUTTONS (Desktop) */}
           <div className="hidden lg:flex items-center gap-4">
             {!isLoggedIn ? (
+              /* CHƯA ĐĂNG NHẬP -> HIỂN THỊ NÚT ĐĂNG NHẬP */
               <Link
                 href="/login"
-                className="px-4 py-2 bg-slate-900 text-white rounded-md text-sm font-medium hover:bg-slate-800 transition-colors"
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-semibold transition-all flex items-center gap-2 shadow-md shadow-slate-900/20 active:scale-95"
               >
-                Đăng Nhập
+                <IconLogin className="w-4 h-4" /> Đăng Nhập
               </Link>
             ) : (
-              <div className="flex items-center gap-2">
+              /* ĐÃ ĐĂNG NHẬP -> HIỂN THỊ 2 NÚT THÊM MỚI VÀ THOÁT */
+              <div className="flex items-center gap-2.5">
                 <Link
-                  href="/AddProduct"
-                  className="px-3 py-2 bg-[#ECA921] hover:bg-[#D89512] text-white rounded-md text-xs font-semibold transition-colors flex items-center gap-1"
+                  href="/admin                  "
+                  className="px-3.5 py-2 bg-[#ECA921] hover:bg-[#D89512] text-white rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
                 >
                   <IconPlus className="w-4 h-4" /> Thêm mới
                 </Link>
                 <button
-                  onClick={onLogout}
-                  className="px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-md text-xs font-semibold hover:bg-red-100 transition-colors flex items-center gap-1"
+                  onClick={handleLogoutAction}
+                  className="px-3.5 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-semibold hover:bg-red-100 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
                 >
                   <IconLogout className="w-4 h-4" /> Thoát
                 </button>
@@ -138,26 +207,34 @@ export default function StickyHeader({
       {isMobileMenuOpen && (
         <div className="lg:hidden border-t border-amber-100 bg-white px-4 pt-4 pb-6 shadow-xl space-y-4 transition-all">
           {/* Ô Tìm kiếm Mobile */}
-          <div className="relative">
+          <form onSubmit={handleSearchSubmit} className="relative">
             <Input
               type="text"
               placeholder="Tìm kiếm sản phẩm, ngành hàng..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchValue}
+              onChange={handleInputChange}
               className="w-full pl-9 pr-8 text-sm border-amber-200 focus:border-[#ECA921] bg-amber-50/30 focus:bg-white rounded-full"
             />
-            <IconSearch className="w-4 h-4 text-amber-500 absolute left-3 top-1/2 -translate-y-1/2" />
-            {searchQuery && (
+            <button
+              type="submit"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500 hover:text-[#ECA921]"
+              aria-label="Submit search"
+            >
+              <IconSearch className="w-4 h-4" />
+            </button>
+
+            {searchValue && (
               <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-500 hover:text-gray-600 text-xs"
+                type="button"
+                onClick={handleClearSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-500 hover:text-gray-600 text-xs font-bold"
               >
                 ✕
               </button>
             )}
-          </div>
+          </form>
 
-          {/* Danh mục dạng Accordion hỗ trợ CLICK trên Mobile */}
+          {/* Accordion Menu */}
           <div className="pt-2 border-t border-gray-100">
             <button
               onClick={() => setIsMobileCategoryOpen(!isMobileCategoryOpen)}
@@ -171,7 +248,6 @@ export default function StickyHeader({
               />
             </button>
 
-            {/* Danh sách ngành hàng hiện ra khi bấm */}
             {isMobileCategoryOpen && (
               <div className="mt-2 pl-2 space-y-1 py-1">
                 {categoriesList.map((cat, index) => (
@@ -189,13 +265,13 @@ export default function StickyHeader({
             )}
           </div>
 
-          {/* Cụm Nút Đăng nhập / Thêm mới / Thoát */}
+          {/* Cụm Nút Mobile: Chưa đăng nhập -> Nút Login | Đã đăng nhập -> Nút Thêm mới + Thoát */}
           <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
             {!isLoggedIn ? (
               <Link
                 href="/login"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="w-full py-2.5 bg-slate-900 text-white rounded-xl text-sm font-semibold text-center hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-slate-900 text-white rounded-xl text-sm font-semibold text-center hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 shadow-sm"
               >
                 <IconLogin className="w-4 h-4" /> Đăng Nhập
               </Link>
@@ -209,11 +285,8 @@ export default function StickyHeader({
                   <IconPlus className="w-4 h-4" /> Thêm sản phẩm mới
                 </Link>
                 <button
-                  onClick={() => {
-                    onLogout();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="w-full py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                  onClick={handleLogoutAction}
+                  className="w-full py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <IconLogout className="w-4 h-4" /> Đăng xuất
                 </button>
