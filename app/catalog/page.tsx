@@ -14,6 +14,7 @@ import {
 } from "@tabler/icons-react";
 import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "../services/auth.service"; // Điều chỉnh đường dẫn tương đối đúng với project của bạn nếu cần
+import Footer from "@/components/Footer";
 
 // Interface map theo đúng response API từ Postman
 interface ApiBrand {
@@ -399,6 +400,7 @@ function CatalogContent() {
           />
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

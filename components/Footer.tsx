@@ -36,7 +36,7 @@ export default function Footer() {
                   href="/catalog"
                   className="hover:text-[#ECA921] transition-colors"
                 >
-                  Thịt Bò Nhập Khẩu
+                  Surimi & Viên thả lẩu
                 </Link>
               </li>
               <li>
@@ -44,7 +44,7 @@ export default function Footer() {
                   href="/catalog"
                   className="hover:text-[#ECA921] transition-colors"
                 >
-                  Hải Sản Tươi Đông Lạnh
+                  Sauce
                 </Link>
               </li>
               <li>
@@ -52,7 +52,7 @@ export default function Footer() {
                   href="/catalog"
                   className="hover:text-[#ECA921] transition-colors"
                 >
-                  Rau Củ & Trái Cây Hữu Cơ
+                  Gia công ODM & OEM
                 </Link>
               </li>
               <li>
@@ -60,7 +60,7 @@ export default function Footer() {
                   href="/catalog"
                   className="hover:text-[#ECA921] transition-colors"
                 >
-                  Gia Vị & Nguyên Liệu Bếp
+                  RTC & RTE
                 </Link>
               </li>
             </ul>
@@ -102,20 +102,16 @@ export default function Footer() {
             </h4>
             <div className="space-y-2 text-xs text-gray-400">
               <p>
-                <strong className="text-gray-200">Trụ sở:</strong> Tầng 5, Tòa
-                nhà Hotline, TP. Hồ Chí Minh
+                <strong className="text-gray-200">Trụ sở:</strong>15 Đường số
+                39, Phường Thủ Đức, TP. Hồ Chí Minh
               </p>
               <p>
-                <strong className="text-gray-200">Kho lạnh:</strong> KCN Tân
-                Bình, Q. Tân Phú, TP. Hồ Chí Minh
-              </p>
-              <p>
-                <strong className="text-gray-200">Hotline B2B:</strong> 0900 123
-                456
+                <strong className="text-gray-200">Hotline:</strong>{" "}
+                0829387980
               </p>
               <p>
                 <strong className="text-gray-200">Email:</strong>{" "}
-                contact@foodcatalog.vn
+                khanh.nd@khanhanfoods.com
               </p>
             </div>
           </div>
@@ -124,7 +120,7 @@ export default function Footer() {
         {/* Bản quyền */}
         <div className="pt-6 flex flex-col md:flex-row justify-between items-center text-xs text-gray-500 gap-4">
           <p>© 2026 FoodCatalog. All rights reserved.</p>
-          <p>Mã số doanh nghiệp: 0312345678 do Sở KH&ĐT TP.HCM cấp.</p>
+          <p>Mã số doanh nghiệp: 0317387980.</p>
         </div>
       </div>
     </footer>

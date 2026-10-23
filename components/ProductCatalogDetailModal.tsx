@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   IconX,
@@ -46,6 +46,7 @@ export default function ProductDetailModal({
   onDelete,
 }: ModalProps) {
   const pathname = usePathname();
+  const [copied, setCopied] = useState(false);
 
   if (!product) return null;
 
@@ -274,7 +275,23 @@ export default function ProductDetailModal({
         </div>
 
         {/* Footer Modal */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+        <div className="relative bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+          {/* 🎯 TOAST THÔNG BÁO KHI ĐÃ COPY */}
+          {copied && (
+            <div className="absolute -top-14 right-6 z-50 bg-gray-900/95 text-white text-xs px-4 py-2.5 rounded-xl shadow-xl border border-amber-400/40 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center">
+                <IconCheck className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <span>
+                Đã sao chép thông tin sản phẩm! Hãy nhấn{" "}
+                <strong className="text-[#ECA921] underline">
+                  Ctrl + V (Dán)
+                </strong>{" "}
+                vào khung chat Zalo.
+              </span>
+            </div>
+          )}
+
           <span className="text-xs text-gray-500 font-medium">
             Cung cấp bởi{" "}
             <strong className="text-gray-900 font-bold">Khánh An Foods</strong>
@@ -304,14 +321,42 @@ export default function ProductDetailModal({
               </button>
             </div>
           ) : (
-            <a
-              href="https://zalo.me/0900123456"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="cursor-pointer px-6 py-2.5 bg-[#ECA921] hover:bg-[#D89512] text-white rounded-xl text-xs font-bold transition-colors shadow-md flex items-center gap-2"
+            <button
+              type="button"
+              onClick={async () => {
+                const zaloNumber = "0399829074";
+                const message = `Xin chào Khánh An Foods, tôi muốn nhận báo giá cho sản phẩm:\n- Mã STT: #${product.stt}\n- Tên sản phẩm: ${product.tenTiengViet} (${product.tenTiengAnh})\n- Thương hiệu: ${product.thuongHieuXuatXu}\n- Quy cách: ${product.quyCachThung}\n\nNhờ shop tư vấn giúp tôi nhé!`;
+
+                // 1. Copy sẵn nội dung vào Clipboard và bật thông báo
+                try {
+                  await navigator.clipboard.writeText(message);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 5000);
+                } catch (err) {
+                  console.error("Không thể copy tự động:", err);
+                }
+
+                // 2. Chờ 600ms để khách kịp nhìn thấy thông báo đã copy rồi mới bật App Zalo
+                setTimeout(() => {
+                  window.location.href = `zalo://conversation?phone=${zaloNumber}`;
+
+                  // 3. Dự phòng mở Web nếu máy không có App Zalo
+                  setTimeout(() => {
+                    if (document.hasFocus()) {
+                      window.open(`https://zalo.me/${zaloNumber}`, "_blank");
+                    }
+                  }, 1500);
+                }, 600);
+              }}
+              className={`cursor-pointer px-6 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 ${
+                copied
+                  ? "bg-emerald-600 hover:bg-emerald-700"
+                  : "bg-[#ECA921] hover:bg-[#D89512]"
+              }`}
             >
-              <IconCheck className="w-4 h-4" /> Yêu cầu báo giá
-            </a>
+              <IconCheck className="w-4 h-4" />
+              {copied ? "Đã sao chép! Đang mở Zalo..." : "Yêu cầu báo giá"}
+            </button>
           )}
         </div>
       </div>

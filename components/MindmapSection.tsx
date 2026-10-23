@@ -94,7 +94,7 @@ export default function MindmapSection() {
     },
     {
       id: "rte",
-      title: "RTE (Ăn Liền) / RTC",
+      title: "RTE / RTC",
       subtitle: "Thịt / Cá ăn liền",
       imageUrl:
         "https://images.unsplash.com/photo-1541832676-9b763b0239ab?q=80&w=400",

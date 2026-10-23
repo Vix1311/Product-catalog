@@ -1,49 +1,45 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  IconPhone,
-  IconMail,
-  IconMapPin,
-  IconHeadset,
-  IconX,
-} from "@tabler/icons-react";
+import { IconPhone, IconHeadset, IconX } from "@tabler/icons-react";
 
 export default function FloatingContact() {
   const [isOpen, setIsOpen] = useState(false);
 
+  const zaloPhone = "0399829074";
+
+  // Hàm xử lý gọi thẳng App Zalo trên máy (PC & Mobile)
+  const handleZaloClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+
+    // 1. Gọi thẳng giao thức ứng dụng Zalo trên thiết bị
+    window.location.href = `zalo://conversation?phone=${zaloPhone}`;
+
+    // 2. Dự phòng: Nếu sau 1.5s trình duyệt vẫn giữ focus (máy không có App Zalo) thì mới mở Web
+    setTimeout(() => {
+      if (document.hasFocus()) {
+        window.open(`https://zalo.me/${zaloPhone}`, "_blank");
+      }
+    }, 1500);
+  };
+
   const contactLinks = [
     {
       id: "phone",
-      label: "Gọi Hotline B2B",
-      value: "0900 123 456",
-      href: "tel:0900123456",
+      label: "Gọi Hotline ",
+      value: "039 982 9074",
+      href: `tel:${zaloPhone}`,
       icon: <IconPhone className="w-5 h-5 text-white" stroke={2} />,
       bgColor: "bg-emerald-600 hover:bg-emerald-700",
     },
     {
       id: "zalo",
-      label: "Chat Zalo B2B",
+      label: "Chat Zalo",
       value: "Zalo Khánh An Foods",
-      href: "https://zalo.me/0900123456",
+      href: `zalo://conversation?phone=${zaloPhone}`,
+      onClick: handleZaloClick, // Gắn sự kiện mở App
       icon: <img src="/Icon_of_Zalo.svg" alt="Zalo Icon" className="w-5 h-5" />,
       bgColor: "bg-blue-600 hover:bg-blue-700",
-    },
-    {
-      id: "email",
-      label: "Gửi Email Báo Giá",
-      value: "contact@foodcatalog.vn",
-      href: "mailto:contact@foodcatalog.vn",
-      icon: <IconMail className="w-5 h-5 text-white" stroke={2} />,
-      bgColor: "bg-[#ECA921] hover:bg-[#D89512]",
-    },
-    {
-      id: "location",
-      label: "Xem Kho Lạnh / Trụ Sở",
-      value: "KCN Tân Bình, TP.HCM",
-      href: "https://maps.google.com",
-      icon: <IconMapPin className="w-5 h-5 text-white" stroke={2} />,
-      bgColor: "bg-red-600 hover:bg-red-700",
     },
   ];
 
@@ -62,9 +58,8 @@ export default function FloatingContact() {
           <a
             key={item.id}
             href={item.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 group pointer-events-auto"
+            onClick={item.onClick}
+            className="flex items-center gap-3 group pointer-events-auto cursor-pointer"
           >
             {/* Nhãn chữ bên trái */}
             <div className="bg-gray-900/90 text-white text-xs font-semibold px-3 py-2 rounded-xl shadow-md backdrop-blur-sm opacity-90 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-amber-100/20">
