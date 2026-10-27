@@ -141,7 +141,7 @@ export default function BlogPage() {
     <div>
       {" "}
       <StickyHeader isLoggedIn={isLoggedIn} onLogout={handleLogout} />
-      <div className="min-h-screen bg-[#FAF8F5] text-gray-800 pb-20">
+      <div className="min-h-screen bg-[#FAF8F5] text-gray-800">
         {/* 🎯 BANNER MẪU HÌNH 2: Thiết kế chuẩn xác theo mẫu "THỊT NHẬP KHẨU" */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6">
           <div

@@ -1,10 +1,15 @@
+import React from "react";
 import Link from "next/link";
+import { IconArrowUpRight } from "@tabler/icons-react";
 
 interface CategoryBannerItem {
   id: number;
+  code: string;
+  tag: string;
   title: string;
   subtitle: string;
-  bgColor: string;
+  bgStyle: string;
+  isLightBg?: boolean;
   imageUrl: string;
   link: string;
 }
@@ -13,76 +18,120 @@ export default function CategoryBanners() {
   const categories: CategoryBannerItem[] = [
     {
       id: 1,
+      code: "01",
+      tag: "ĐẶC SẢN TRUYỀN THỐNG",
       title: "Chả Mực Hạ Long",
-      subtitle: "Đặc Sản Gia Truyền",
-      bgColor: "bg-[#ECA921]", // Vàng ấm
+      subtitle: "Giã tay gia truyền, giòn sần sật chuẩn vị biển Quảng Ninh",
+      bgStyle: "bg-gradient-to-br from-[#ECA921] to-[#D48806]",
+      isLightBg: true,
       imageUrl:
-        "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=300",
+        "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400",
       link: "/catalog?group=cha-muc",
     },
     {
       id: 2,
-      title: "Thực Phẩm Sức Khoẻ",
-      subtitle: "Lẩu Đông Trùng Hạ Thảo Tươi",
-      bgColor: "bg-[#7A4B27]", // Nâu sẫm
+      code: "02",
+      tag: "DINH DƯỠNG CAO CẤP",
+      title: "Thực Phẩm Sức Khỏe",
+      subtitle: "Lẩu Đông Trùng Hạ Thảo tươi & nguyên liệu bổ dưỡng",
+      bgStyle: "bg-gradient-to-br from-[#3A2210] to-[#1F1209]",
       imageUrl:
-        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=300",
+        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=400",
       link: "/catalog?group=suc-khoe",
     },
     {
       id: 3,
+      code: "03",
+      tag: "TIỆN LỢI CHUẨN VỊ",
       title: "Ẩm Thực Đặc Sản",
-      subtitle: "Hàu Sữa Hạ Long Chưng Thịt",
-      bgColor: "bg-[#ECA921]", // Rêu đậm
+      subtitle: "Hàu sữa Hạ Long chưng thịt & các dòng RTE ăn liền",
+      bgStyle: "bg-gradient-to-br from-[#B8731B] to-[#8C5210]",
       imageUrl:
-        "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?q=80&w=300",
+        "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?q=80&w=400",
       link: "/catalog?group=dac-san",
     },
     {
       id: 4,
+      code: "04",
+      tag: "B2B HORECA WHOLESALE",
       title: "Nguyên Liệu Nhà Hàng",
-      subtitle: "Giá Sỉ, Hồ Sơ SP Đạt Chuẩn",
-      bgColor: "bg-[#683C21]", // Nâu cà phê
+      subtitle: "Giá sỉ theo thùng, đầy đủ hồ sơ kiểm dịch & ATVSTP",
+      bgStyle: "bg-gradient-to-br from-[#141821] to-[#0B0F17]",
       imageUrl:
-        "https://images.unsplash.com/photo-1603048588665-791ca8aea617?q=80&w=300",
-      link: "/catalog?group=nguyen-lieu",
+        "https://images.unsplash.com/photo-1603048588665-791ca8aea617?q=80&w=400",
+      link: "/catalog?group=thit-nhap-khau",
     },
   ];
 
   return (
-    <section className="w-full">
+    <section className="w-full border-b border-amber-200/60 shadow-md">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 w-full">
         {categories.map((cat) => (
-          <div
+          <Link
             key={cat.id}
-            className={`${cat.bgColor} text-white p-6 md:p-8 flex items-center justify-between min-h-[220px] relative overflow-hidden transition-transform hover:z-10`}
+            href={cat.link}
+            className={`${cat.bgStyle} group p-6 sm:p-7 flex items-center justify-between min-h-[210px] relative overflow-hidden transition-all duration-300 border-b sm:border-b-0 sm:border-r border-white/10 last:border-r-0`}
           >
+            {/* Số thứ tự chìm làm điểm nhấn thiết kế */}
+            <span
+              className={`absolute -bottom-4 left-3 text-7xl font-black select-none pointer-events-none transition-transform duration-500 group-hover:scale-110 ${
+                cat.isLightBg ? "text-black/5" : "text-white/5"
+              }`}
+            >
+              {cat.code}
+            </span>
+
             {/* Nội dung bên trái */}
-            <div className="space-y-3 z-10 max-w-[60%]">
-              <h3 className="text-xl md:text-2xl font-bold leading-tight">
+            <div className="space-y-2.5 z-10 max-w-[62%]">
+              <span
+                className={`inline-block text-[9px] font-black uppercase tracking-[0.16em] px-2.5 py-0.5 rounded-full ${
+                  cat.isLightBg
+                    ? "bg-gray-950/10 text-gray-900"
+                    : "bg-[#ECA921]/20 text-[#ECA921] border border-[#ECA921]/30"
+                }`}
+              >
+                {cat.tag}
+              </span>
+
+              <h3
+                className={`text-lg sm:text-xl font-black leading-snug ${
+                  cat.isLightBg ? "text-gray-950" : "text-[#FFF3D1]"
+                }`}
+              >
                 {cat.title}
               </h3>
-              <p className="text-xs md:text-sm text-white/80 font-light line-clamp-2">
+
+              <p
+                className={`text-xs leading-relaxed line-clamp-2 font-medium ${
+                  cat.isLightBg ? "text-gray-900/80" : "text-gray-300"
+                }`}
+              >
                 {cat.subtitle}
               </p>
-              <div>
-                <Link href={cat.link}>
-                  <button className="bg-[#242938] hover:bg-[#1a1e29] text-white text-xs font-medium px-4 py-2 rounded-md shadow transition-colors">
-                    Xem ngay
-                  </button>
-                </Link>
+
+              <div className="pt-1">
+                <span
+                  className={`inline-flex items-center gap-1 text-xs font-extrabold px-3.5 py-1.5 rounded-xl transition-all shadow-xs ${
+                    cat.isLightBg
+                      ? "bg-gray-950 text-white group-hover:bg-gray-800"
+                      : "bg-[#ECA921] text-gray-950 group-hover:bg-[#FFF3D1]"
+                  }`}
+                >
+                  <span>Khám phá</span>
+                  <IconArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </span>
               </div>
             </div>
 
-            {/* Hình ảnh bên phải */}
-            <div className="w-28 h-28 md:w-36 md:h-36 relative flex-shrink-0 flex items-center justify-center">
+            {/* Hình ảnh bên phải đóng khung tròn sang trọng */}
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden shrink-0 border-4 border-white/25 shadow-xl relative z-10 bg-gray-900 group-hover:scale-105 transition-transform duration-500">
               <img
                 src={cat.imageUrl}
                 alt={cat.title}
-                className="w-full h-full object-contain drop-shadow-xl"
+                className="w-full h-full object-cover"
               />
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </section>

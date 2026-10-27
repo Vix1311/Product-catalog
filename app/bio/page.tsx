@@ -278,13 +278,13 @@ export default function AboutCompanyPage() {
                 <div className="flex items-center gap-2">
                   <IconPhoneCall className="w-5 h-5 text-[#ECA921]" />
                   <span>
-                    Hotline/Zalo: <strong>039 982 9074</strong>
+                    Hotline/Zalo: <strong>082 938 7980</strong>
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <IconMail className="w-5 h-5 text-[#ECA921]" />
                   <span>
-                    Email: <strong>contact@khanhanfoods.vn</strong>
+                    Email: <strong>khanh.nd@khanhanfoods.com</strong>
                   </span>
                 </div>
               </div>

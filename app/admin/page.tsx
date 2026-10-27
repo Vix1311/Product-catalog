@@ -24,6 +24,7 @@ import {
 } from "@tabler/icons-react";
 import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "../services/auth.service";
+import Footer from "@/components/Footer";
 
 // 1. INTERFACES TỪ API RESPONSE
 interface ApiBrand {
@@ -69,7 +70,6 @@ interface CatalogProduct extends ProductDetail {
   rawProduct: ApiProduct;
 }
 
-// Interface riêng cho State của Form Biến thể
 interface VariantFormItem {
   id: string;
   productId: string;
@@ -149,13 +149,12 @@ function AdminCatalogContent() {
     }
   };
 
-  // 2. Đọc params từ URL (Không dùng thanh lọc category rời, bắt theo URL group)
+  // 2. Đọc params từ URL
   const groupSlug = searchParams.get("group") || "";
   const subCategorySlug =
     searchParams.get("subCategory") || searchParams.get("sub") || "";
   const searchFromUrl = searchParams.get("search") || "";
 
-  // Chỉ hiện filter loại thịt khi group là thit-nhap-khau (hoặc mặc định)
   const showProteinFilter = !groupSlug || groupSlug === "thit-nhap-khau";
 
   // 3. State UI & Bộ lọc
@@ -174,6 +173,9 @@ function AdminCatalogContent() {
   const [isUploadingExcel, setIsUploadingExcel] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
+  // State lưu file ảnh được chọn khi tạo sản phẩm mới (chưa có ID)
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+
   // State Form Thông tin Sản phẩm
   const [formData, setFormData] = useState({
     name: "",
@@ -188,7 +190,6 @@ function AdminCatalogContent() {
     imageUrl: "",
   });
 
-  // State Form Danh sách Variants (Đã dùng VariantFormItem có isNew?: boolean)
   const [variantForms, setVariantForms] = useState<VariantFormItem[]>([]);
 
   useEffect(() => {
@@ -310,7 +311,7 @@ function AdminCatalogContent() {
   };
 
   // ============================================================================
-  // CÁC HÀM CALL API (IMPORT EXCEL, UPLOAD ẢNH, SỬA, XÓA)
+  // CÁC HÀM CALL API (IMPORT EXCEL, UPLOAD ẢNH QUA PATCH, SỬA, XÓA)
   // ============================================================================
 
   // 1. POST /api/products/import-excel
@@ -325,13 +326,15 @@ function AdminCatalogContent() {
       setIsUploadingExcel(true);
       const token = localStorage.getItem("accessToken");
 
+      const authHeaders: HeadersInit = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
+
       const response = await fetch(
         `${API_BASE_URL}/api/products/import-excel`,
         {
           method: "POST",
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: authHeaders,
           body: formDataExcel,
         },
       );
@@ -353,50 +356,64 @@ function AdminCatalogContent() {
     }
   };
 
-  // 2. POST /test-upload/image
+  // 2. 🎯 CẬP NHẬT CHUẨN POSTMAN: PATCH /api/products/:id/image với key 'file'
   const handleImageFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const formDataImg = new FormData();
-    formDataImg.append("file", file);
+    // A. Nếu đang sửa sản phẩm đã có id -> gọi thẳng PATCH /api/products/:id/image
+    if (editingProduct?.id) {
+      const formDataImg = new FormData();
+      formDataImg.append("file", file); // Key 'file' đúng chuẩn Postman
 
-    try {
-      setIsUploadingImage(true);
-      const token = localStorage.getItem("accessToken");
+      try {
+        setIsUploadingImage(true);
+        const token = localStorage.getItem("accessToken");
+        const authHeaders: HeadersInit = token
+          ? { Authorization: `Bearer ${token}` }
+          : {};
 
-      const response = await fetch(`${API_BASE_URL}/test-upload/image`, {
-        method: "POST",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: formDataImg,
-      });
+        const response = await fetch(
+          `${API_BASE_URL}/api/products/${editingProduct.id}/image`,
+          {
+            method: "PATCH",
+            headers: authHeaders,
+            body: formDataImg,
+          },
+        );
 
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.message || "Không thể tải ảnh lên");
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(result.message || "Không thể cập nhật ảnh qua PATCH");
+        }
+
+        const newImageUrl =
+          result.imageUrl ||
+          result.url ||
+          result.secure_url ||
+          result.data?.imageUrl;
+
+        if (newImageUrl) {
+          setFormData((prev) => ({ ...prev, imageUrl: newImageUrl }));
+        }
+
+        await mutate();
+        alert("Đã cập nhật ảnh sản phẩm lên Cloudinary thành công!");
+      } catch (err: any) {
+        alert(`Lỗi upload ảnh: ${err.message}`);
+      } finally {
+        setIsUploadingImage(false);
+        if (imageInputRef.current) imageInputRef.current.value = "";
       }
-
-      const uploadedUrl =
-        result.url ||
-        result.imageUrl ||
-        result.secure_url ||
-        result.data?.url ||
-        result.path ||
-        (typeof result === "string" ? result : "");
-
-      if (uploadedUrl) {
-        setFormData((prev) => ({ ...prev, imageUrl: uploadedUrl }));
-      } else {
-        alert("Tải ảnh thành công nhưng không tìm thấy đường dẫn trả về!");
-      }
-    } catch (err: any) {
-      alert(`Lỗi tải ảnh: ${err.message}`);
-    } finally {
-      setIsUploadingImage(false);
+    } else {
+      // B. Nếu đang tạo mới (chưa có id) -> lưu tạm file, tạo preview và chờ bấm Lưu sẽ gọi PATCH
+      setPendingImageFile(file);
+      setFormData((prev) => ({
+        ...prev,
+        imageUrl: URL.createObjectURL(file),
+      }));
       if (imageInputRef.current) imageInputRef.current.value = "";
     }
   };
@@ -404,6 +421,7 @@ function AdminCatalogContent() {
   // Mở Modal Thêm mới
   const handleOpenCreateModal = () => {
     setEditingProduct(null);
+    setPendingImageFile(null);
     setFormData({
       name: "",
       englishName: "",
@@ -424,6 +442,7 @@ function AdminCatalogContent() {
   const handleOpenEditModal = (rawProd: ApiProduct, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setEditingProduct(rawProd);
+    setPendingImageFile(null);
     setFormData({
       name: rawProd.name || "",
       englishName: rawProd.englishName || "",
@@ -452,7 +471,7 @@ function AdminCatalogContent() {
     setIsFormModalOpen(true);
   };
 
-  // 3 & 4. PATCH /api/products/:id & PATCH /api/product-variants/:id
+  // 3 & 4. Xử lý lưu thông tin sản phẩm và biến thể
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
@@ -463,17 +482,20 @@ function AdminCatalogContent() {
     try {
       setIsSubmitting(true);
       const token = localStorage.getItem("accessToken");
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
+      const authHeaders: HeadersInit = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
 
       if (editingProduct) {
+        // Cập nhật thông tin text của sản phẩm
         const productRes = await fetch(
           `${API_BASE_URL}/api/products/${editingProduct.id}`,
           {
             method: "PATCH",
-            headers,
+            headers: {
+              "Content-Type": "application/json",
+              ...authHeaders,
+            },
             body: JSON.stringify({
               name: formData.name,
               englishName: formData.englishName || null,
@@ -493,24 +515,29 @@ function AdminCatalogContent() {
           throw new Error("Cập nhật thông tin sản phẩm thất bại");
         }
 
+        // Cập nhật từng variant
         for (const v of variantForms) {
           if (v.isNew) {
-            // Gọi API POST /api/product-variants khi người dùng bấm thêm biến thể mới
             await fetch(`${API_BASE_URL}/api/product-variants`, {
               method: "POST",
-              headers,
+              headers: {
+                "Content-Type": "application/json",
+                ...authHeaders,
+              },
               body: JSON.stringify({
                 productId: editingProduct.id,
-                brandId: v.brandId || "default-brand-id", // Hoặc truyền ID thương hiệu tương ứng
+                brandId: v.brandId || "default-brand-id",
                 packaging: v.packaging,
                 brandNote: v.brandNote,
               }),
             });
           } else if (v.id) {
-            // Gọi API PATCH cho các biến thể cũ đã có sẵn
             await fetch(`${API_BASE_URL}/api/product-variants/${v.id}`, {
               method: "PATCH",
-              headers,
+              headers: {
+                "Content-Type": "application/json",
+                ...authHeaders,
+              },
               body: JSON.stringify({
                 productId: v.productId,
                 brandId: v.brandId,
@@ -523,23 +550,45 @@ function AdminCatalogContent() {
 
         alert("Đã cập nhật sản phẩm và biến thể thành công!");
       } else {
+        // Tạo sản phẩm mới
         const createRes = await fetch(`${API_BASE_URL}/api/products`, {
           method: "POST",
-          headers,
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
           body: JSON.stringify({
             ...formData,
-            imageUrl: formData.imageUrl.trim() || null,
+            imageUrl: pendingImageFile
+              ? null
+              : formData.imageUrl.trim() || null,
           }),
         });
 
         if (!createRes.ok) {
           throw new Error("Tạo sản phẩm mới thất bại");
         }
+
+        const newProd = await createRes.json();
+
+        // Nếu có chọn ảnh khi tạo mới, gọi tiếp PATCH /api/products/:id/image
+        if (pendingImageFile && newProd?.id) {
+          const patchFormData = new FormData();
+          patchFormData.append("file", pendingImageFile);
+
+          await fetch(`${API_BASE_URL}/api/products/${newProd.id}/image`, {
+            method: "PATCH",
+            headers: authHeaders,
+            body: patchFormData,
+          });
+        }
+
         alert("Đã tạo sản phẩm mới thành công!");
       }
 
       await mutate();
       setIsFormModalOpen(false);
+      setPendingImageFile(null);
     } catch (err: any) {
       alert(`Lỗi: ${err.message}`);
     } finally {
@@ -563,11 +612,13 @@ function AdminCatalogContent() {
 
     try {
       const token = localStorage.getItem("accessToken");
+      const authHeaders: HeadersInit = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
+
       const res = await fetch(`${API_BASE_URL}/api/products/${rawProd.id}`, {
         method: "DELETE",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: authHeaders,
       });
 
       if (!res.ok) throw new Error("Xóa sản phẩm thất bại");
@@ -577,31 +628,6 @@ function AdminCatalogContent() {
     } catch (err: any) {
       alert(`Lỗi khi xóa: ${err.message}`);
     }
-  };
-
-  const handleCreateNewVariant = async (
-    productId: string,
-    newVariantData: { brandId: string; packaging: string; brandNote: string },
-  ) => {
-    const token = localStorage.getItem("accessToken");
-    const res = await fetch(`${API_BASE_URL}/api/product-variants`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        productId,
-        brandId: newVariantData.brandId,
-        packaging: newVariantData.packaging,
-        brandNote: newVariantData.brandNote,
-      }),
-    });
-
-    if (!res.ok) {
-      throw new Error("Không thể thêm biến thể mới");
-    }
-    return res.json();
   };
 
   return (
@@ -626,7 +652,7 @@ function AdminCatalogContent() {
                 </p>
               </div>
 
-              {/* Cụm nút Quản trị: Thêm Excel & Thêm Mới */}
+              {/* Cụm nút Quản trị */}
               <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
                 <input
                   ref={excelInputRef}
@@ -663,10 +689,9 @@ function AdminCatalogContent() {
             </div>
           </div>
 
-          {/* THANH CÔNG CỤ (ĐÃ XÓA DROPDOWN LỌC CATEGORY) */}
+          {/* THANH CÔNG CỤ */}
           <div className="bg-white p-4 rounded-2xl border border-amber-100/80 shadow-xs mb-8">
             <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-              {/* Cột Trái: Lọc loại thịt + Nút lọc sản phẩm thiếu hình */}
               <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                 {showProteinFilter && (
                   <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
@@ -693,7 +718,6 @@ function AdminCatalogContent() {
                   </div>
                 )}
 
-                {/* Nút lọc cảnh báo sản phẩm chưa có hình */}
                 <button
                   type="button"
                   onClick={() => setOnlyMissingImage(!onlyMissingImage)}
@@ -708,7 +732,6 @@ function AdminCatalogContent() {
                 </button>
               </div>
 
-              {/* Cột Phải: Tìm kiếm + Đổi Card/Table + Tổng số */}
               <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
                 <div className="relative flex-1 sm:w-64">
                   <input
@@ -721,7 +744,6 @@ function AdminCatalogContent() {
                   <IconSearch className="w-4 h-4 text-amber-500 absolute left-3 top-1/2 -translate-y-1/2" />
                 </div>
 
-                {/* Chuyển đổi Card / Table */}
                 <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200">
                   <button
                     type="button"
@@ -793,7 +815,6 @@ function AdminCatalogContent() {
               </button>
             </div>
           ) : viewMode === "card" ? (
-            /* ================= CHẾ ĐỘ CARD VIEW (BẤM VÀO CARD MỞ MODAL, 2 NÚT SỬA XÓA TO) ================= */
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {products.map((product) => (
                 <div
@@ -813,7 +834,6 @@ function AdminCatalogContent() {
                       </div>
 
                       <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                        {/* DẤU CHẤM THAN ĐỎ KHI SẢN PHẨM CHƯA CÓ HÌNH */}
                         {!product.hasRealImage && (
                           <div
                             title="Sản phẩm này chưa có hình ảnh!"
@@ -864,7 +884,6 @@ function AdminCatalogContent() {
                     </div>
                   </div>
 
-                  {/* 🎯 2 NÚT SỬA & XÓA TO RÕ RÀNG (ĐÃ BỎ NÚT XEM CHI TIẾT) */}
                   <div
                     className="px-5 pb-5 pt-2 grid grid-cols-2 gap-3"
                     onClick={(e) => e.stopPropagation()}
@@ -895,7 +914,6 @@ function AdminCatalogContent() {
               ))}
             </div>
           ) : (
-            /* ================= CHẾ ĐỘ TABLE VIEW ================= */
             <div className="bg-white rounded-2xl border border-amber-100 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -1008,7 +1026,7 @@ function AdminCatalogContent() {
             </div>
           )}
 
-          {/* MODAL XEM CHI TIẾT SẢN PHẨM (BẬT CHẾ ĐỘ ADMIN CÓ NÚT SỬA / XÓA) */}
+          {/* MODAL XEM CHI TIẾT SẢN PHẨM */}
           <ProductDetailModal
             product={selectedProduct}
             onClose={() => setSelectedProduct(null)}
@@ -1025,7 +1043,7 @@ function AdminCatalogContent() {
             }}
           />
 
-          {/* MODAL THÊM / SỬA SẢN PHẨM & VARIANT & UPLOAD ẢNH */}
+          {/* MODAL THÊM / SỬA SẢN PHẨM & UPLOAD ẢNH QUA PATCH */}
           {isFormModalOpen && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
               <div className="bg-white rounded-3xl max-w-3xl w-full p-6 md:p-8 shadow-2xl border border-amber-100 my-8 max-h-[90vh] overflow-y-auto">
@@ -1119,11 +1137,18 @@ function AdminCatalogContent() {
                     </div>
                   </div>
 
-                  {/* PHẦN UPLOAD HÌNH ẢNH */}
+                  {/* PHẦN UPLOAD HÌNH ẢNH QUA PATCH /api/products/:id/image */}
                   <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/70 space-y-2">
-                    <label className="block font-bold text-[#4A2E16]">
-                      Hình ảnh sản phẩm
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="block font-bold text-[#4A2E16]">
+                        Hình ảnh sản phẩm (PATCH /api/products/:id/image)[cite:
+                        3]
+                      </label>
+                      <span className="text-[10px] text-amber-700 font-semibold">
+                        Form key: <strong>file</strong>[cite: 3]
+                      </span>
+                    </div>
+
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                       <input
                         type="text"
@@ -1131,7 +1156,7 @@ function AdminCatalogContent() {
                         onChange={(e) =>
                           setFormData({ ...formData, imageUrl: e.target.value })
                         }
-                        placeholder="Dán link ảnh hoặc bấm tải ảnh từ máy..."
+                        placeholder="Dán link ảnh hoặc bấm chọn file..."
                         className="flex-1 p-2.5 rounded-xl border border-gray-200 bg-white focus:border-[#ECA921] outline-none"
                       />
                       <input
@@ -1153,10 +1178,13 @@ function AdminCatalogContent() {
                           <IconUpload className="w-4 h-4" />
                         )}
                         <span>
-                          {isUploadingImage ? "Đang tải lên..." : "Upload Ảnh"}
+                          {isUploadingImage
+                            ? "Đang tải lên..."
+                            : "Chọn & Upload Ảnh"}
                         </span>
                       </button>
                     </div>
+
                     {formData.imageUrl && (
                       <div className="pt-2 flex items-center gap-3">
                         <img
@@ -1165,7 +1193,7 @@ function AdminCatalogContent() {
                           className="w-16 h-16 rounded-xl object-cover border border-amber-200"
                         />
                         <span className="text-[11px] text-emerald-600 font-bold">
-                          ✓ Đã có hình ảnh hiển thị
+                          ✓ Đã sẵn sàng hiển thị
                         </span>
                       </div>
                     )}
@@ -1224,7 +1252,7 @@ function AdminCatalogContent() {
                     />
                   </div>
 
-                  {/* CHỈNH SỬA & THÊM MỚI BIẾN THỂ */}
+                  {/* BIẾN THỂ THƯƠNG HIỆU */}
                   {editingProduct && (
                     <div className="pt-4 border-t border-gray-200 space-y-3">
                       <div className="flex items-center justify-between">
@@ -1346,6 +1374,7 @@ function AdminCatalogContent() {
           )}
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

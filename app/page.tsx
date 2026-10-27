@@ -8,14 +8,17 @@ import TrustSection from "@/components/TrustSection";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import MindmapSection from "@/components/MindmapSection";
-import { Button } from "@/components/ui/button";
 import { logoutApi } from "./services/auth.service";
 import { useEffect, useState, Suspense } from "react";
+import {
+  IconArrowRight,
+  IconSparkles,
+  IconBookDownload,
+} from "@tabler/icons-react";
 
 function HomeContent() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
-  // 1. Kiểm tra trạng thái khi vừa vào trang
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem("accessToken");
@@ -23,27 +26,23 @@ function HomeContent() {
       setIsLoggedIn(!!(token && loggedInState === "true"));
     };
 
-    // Kiểm tra lần đầu khi mount
     checkAuth();
-
-    // Lắng nghe sự kiện đăng nhập/đăng xuất
     window.addEventListener("storage", checkAuth);
     return () => window.removeEventListener("storage", checkAuth);
   }, []);
 
-  // 2. Hàm Xử lý Đăng xuất thực sự
   const handleLogout = async () => {
     try {
-      await logoutApi(); // Call API Logout & Xóa LocalStorage
+      await logoutApi();
     } catch (error) {
       console.error("Lỗi logout API:", error);
     } finally {
-      setIsLoggedIn(false); // 👈 BẮT BUỘC: Đổi State ngay lập tức để UI render lại
+      setIsLoggedIn(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans flex flex-col justify-between">
+    <div className="min-h-screen bg-[#FAF8F5] text-gray-800 font-sans flex flex-col justify-between">
       <div>
         {/* Header Dính */}
         <StickyHeader isLoggedIn={isLoggedIn} onLogout={handleLogout} />
@@ -51,36 +50,55 @@ function HomeContent() {
         {/* 1. Hero Banner TRÀN MÀN HÌNH */}
         <HeroBanner />
 
-        {/* 2. Khối 4 Ô BANNERS DANH MỤC TRÀN MÀN HÌNH (ĐẶT NGAY DƯỚI HERO) */}
+        {/* 2. Khối 4 Ô BANNERS DANH MỤC TRÀN MÀN HÌNH */}
         <CategoryBanners />
 
-        {/* Các phần giới hạn chiều ngang chuẩn */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
-          <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-8 flex flex-col md:flex-row justify-between items-center gap-6 shadow-sm">
-            <div>
-              <h2 className="text-2xl font-bold text-[#4A2E16]">
-                Tra Cứu Toàn Bộ Catalog Thực Phẩm
+        {/* VÙNG NỘI DUNG TRUNG TÂM: Phân tách rõ ràng từng Section */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
+          {/* KHỐI CTA TRA CỨU CATALOG (Dạng Đảo Nội Dung Nổi Bật) */}
+          <div
+            className="rounded-[28px] p-8 sm:p-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 shadow-xl border border-amber-500/25 relative overflow-hidden"
+            style={{
+              background:
+                "linear-gradient(90deg, #0B0F17 0%, #1F150D 30%, #4A2809 70%, #1F150D 100%)",
+            }}
+          >
+            <div className="space-y-2 max-w-2xl relative z-10">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ECA921]/15 border border-[#ECA921]/40 text-[#ECA921] text-[11px] font-bold uppercase tracking-widest">
+                <IconSparkles className="w-3.5 h-3.5" />
+                <span>KHÁNH AN B2B PRODUCT HUB</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-[#FFF3D1] tracking-tight">
+                Tra Cứu Toàn Bộ Catalog Thực Phẩm Nhập Khẩu
               </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Xem chi tiết quy cách đóng gói, xuất xứ và tiêu chuẩn phân phối
-                của hơn 500+ sản phẩm.
+              <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                Xem chi tiết quy cách đóng gói thùng, thương hiệu xuất xứ, độ
+                dày cắt chuẩn và gợi ý thực đơn của hơn{" "}
+                <strong>500+ mặt hàng</strong> chuyên dụng cho kênh Nhà hàng,
+                Lẩu Nướng & HORECA.
               </p>
             </div>
-            <Link href="/catalog">
-              <Button
-                size="lg"
-                className="bg-[#ECA921] hover:bg-[#D89512] text-white font-bold px-8 shadow transition-all border-none"
+
+            <div className="flex flex-wrap items-center gap-3 shrink-0 relative z-10">
+              <Link
+                href="/catalog"
+                className="cursor-pointer px-7 py-3.5 rounded-xl bg-[#ECA921] hover:bg-[#D89512] text-gray-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all flex items-center gap-2 group"
               >
-                Xem Catalog Ngay →
-              </Button>
-            </Link>
+                <IconBookDownload className="w-4 h-4" />
+                <span>Mở Catalog Ngay</span>
+                <IconArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
           </div>
-          <MindmapSection />
-          {/* 3. Về Chúng Tôi (Chứng nhận & Pháp lý) */}
+        </div>
+        {/* 3. SƠ ĐỒ HỆ CUNG ỨNG NGÀNH HÀNG (Đảo Nội Dung Nền Trắng) */}
+        <MindmapSection />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
+          {/* 4. VỀ CHÚNG TÔI, NĂNG LỰC & HỒ SƠ PHÁP LÝ */}
           <AboutSection />
-          {/* 4. Tiêu chí & Đối tác */}
+          {/* 5. GÓC ẨM THỰC & CẨM NANG B2B (Blog Showcase) */}
           <TrustSection />
-        </main>
+        </div>
       </div>
 
       {/* Chân Trang */}
@@ -93,7 +111,7 @@ export default function HomePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 text-sm text-gray-500 font-semibold">
+        <div className="min-h-screen flex items-center justify-center bg-[#FAF8F5] text-sm text-gray-500 font-semibold">
           Đang tải trang...
         </div>
       }

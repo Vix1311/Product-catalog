@@ -3,26 +3,32 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   IconArrowLeft,
   IconCalendar,
   IconClock,
-  IconUser,
   IconShare,
   IconCheck,
   IconChevronRight,
   IconFlame,
   IconBulb,
+  IconAlertTriangle,
   IconPhoneCall,
   IconBook,
   IconTag,
+  IconEdit,
 } from "@tabler/icons-react";
 import Footer from "@/components/Footer";
 import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "@/app/services/auth.service";
 
-interface BlogPostDetail {
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+
+export interface BlogPostDetail {
   id: string;
+  slug?: string;
   title: string;
   excerpt: string;
   category: string;
@@ -32,8 +38,10 @@ interface BlogPostDetail {
   authorRole: string;
   imageUrl: string;
   tags: string[];
-  keyTakeaways: string[];
-  sections: {
+  // Hỗ trợ cả 2 chế độ: Chuỗi Markdown từ File Word HOẶC cấu trúc mảng tĩnh
+  content?: string;
+  keyTakeaways?: string[];
+  sections?: {
     heading: string;
     content: string[];
     highlightBox?: string;
@@ -44,7 +52,7 @@ interface BlogPostDetail {
   };
 }
 
-// Dữ liệu chi tiết cho đủ 5 bài viết từ trang danh sách Blog
+// Dữ liệu mặc định khi chưa lấy từ Backend
 const BLOG_DETAILS: Record<string, BlogPostDetail> = {
   "1": {
     id: "1",
@@ -217,22 +225,79 @@ const BLOG_DETAILS: Record<string, BlogPostDetail> = {
   },
 };
 
+function extractTextFromChildren(children: React.ReactNode): string {
+  if (typeof children === "string") return children;
+  if (typeof children === "number") return String(children);
+  if (Array.isArray(children))
+    return children.map(extractTextFromChildren).join("");
+  if (React.isValidElement(children)) {
+    return extractTextFromChildren((children.props as any)?.children);
+  }
+  return "";
+}
+
 export default function BlogDetailPage() {
   const params = useParams();
   const postId = typeof params?.id === "string" ? params.id : "1";
 
-  // Lấy bài viết theo ID trên URL, nếu ID là 4 hoặc 5 chưa có chi tiết riêng thì hiển thị mẫu đầy đủ kết hợp thông tin bài đó
-  const post: BlogPostDetail = BLOG_DETAILS[postId] || {
-    ...BLOG_DETAILS["1"],
-    id: postId,
-  };
-
-  const relatedPosts = Object.values(BLOG_DETAILS).filter(
-    (item) => item.id !== post.id,
+  const [post, setPost] = useState<BlogPostDetail>(
+    BLOG_DETAILS[postId] || { ...BLOG_DETAILS["1"], id: postId },
+  );
+  const [relatedPosts, setRelatedPosts] = useState<BlogPostDetail[]>(
+    Object.values(BLOG_DETAILS).filter((item) => item.id !== postId),
   );
 
   const [copiedQuote, setCopiedQuote] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+
+  // Kiểm tra trạng thái đăng nhập
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem("accessToken");
+      const loggedInState = localStorage.getItem("isLoggedIn");
+      setIsLoggedIn(!!(token && loggedInState === "true"));
+    };
+
+    checkAuth();
+    window.addEventListener("storage", checkAuth);
+    return () => window.removeEventListener("storage", checkAuth);
+  }, []);
+
+  // Gọi Backend lấy bài viết (nếu bài được tạo từ File Word trong DB)
+  useEffect(() => {
+    const fetchPostFromApi = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/posts/${postId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.post) {
+            setPost(data.post);
+            if (
+              Array.isArray(data.relatedPosts) &&
+              data.relatedPosts.length > 0
+            ) {
+              setRelatedPosts(data.relatedPosts);
+            }
+          }
+        }
+      } catch {
+        // Nếu Backend chưa bật hoặc ID là bài mẫu 1,2,3 thì dùng BLOG_DETAILS
+      }
+    };
+    fetchPostFromApi();
+  }, [postId]);
+
+  const handleLogout = async () => {
+    try {
+      await logoutApi();
+    } catch (error) {
+      console.error("Lỗi logout API:", error);
+    } finally {
+      setIsLoggedIn(false);
+      window.dispatchEvent(new Event("storage"));
+    }
+  };
 
   // Hàm xử lý bấm tư vấn báo giá qua Zalo (tự copy + bật App Zalo)
   const handleZaloConsult = async () => {
@@ -265,35 +330,58 @@ export default function BlogDetailPage() {
     }
   };
 
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  // 🎯 TỰ ĐỘNG TÁCH CÁC DÒNG "Tóm tắt:" TRONG MARKDOWN ĐỂ ĐƯA VÀO HỘP KEY TAKEAWAYS ĐÁNH SỐ 1, 2, 3
+  const extractedTakeaways: string[] = post.keyTakeaways
+    ? [...post.keyTakeaways]
+    : [];
+  let cleanedMarkdown = post.content || "";
 
-  useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem("accessToken");
-      const loggedInState = localStorage.getItem("isLoggedIn");
-      setIsLoggedIn(!!(token && loggedInState === "true"));
-    };
+  if (post.content && (!post.keyTakeaways || post.keyTakeaways.length === 0)) {
+    const lines = post.content.split("\n");
+    const remainingLines: string[] = [];
 
-    checkAuth();
-    window.addEventListener("storage", checkAuth);
-    return () => window.removeEventListener("storage", checkAuth);
-  }, []);
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (/^(tóm tắt|điểm chính)\s*:/i.test(trimmed)) {
+        const cleanedPoint = trimmed.replace(
+          /^(tóm tắt|điểm chính)\s*:\s*/i,
+          "",
+        );
+        // Nếu người viết ngăn cách bằng dấu chấm phẩy ';' thì tách thành nhiều ý 1, 2, 3
+        cleanedPoint
+          .split(";")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .forEach((item) => extractedTakeaways.push(item));
+      } else {
+        remainingLines.push(line);
+      }
+    });
 
-  const handleLogout = async () => {
-    try {
-      await logoutApi();
-    } catch (error) {
-      console.error("Lỗi logout API:", error);
-    } finally {
-      setIsLoggedIn(false);
-      window.dispatchEvent(new Event("storage"));
-    }
-  };
+    cleanedMarkdown = remainingLines.join("\n");
+  }
+
+  // Tự động tạo danh sách Mục lục cho Sidebar (Từ cả post.sections hoặc thẻ ## trong Markdown)
+  const tocItems: { id: string; label: string }[] =
+    post.sections && post.sections.length > 0
+      ? post.sections.map((sec, idx) => ({
+          id: `section-${idx}`,
+          label: sec.heading,
+        }))
+      : cleanedMarkdown
+          .split("\n")
+          .filter((line) => line.trim().startsWith("## "))
+          .map((line, idx) => {
+            const label = line.replace(/^##\s+/, "").trim();
+            return { id: `md-section-${idx}`, label };
+          });
+
+  let markdownH2Index = 0;
 
   return (
     <div>
       <StickyHeader isLoggedIn={isLoggedIn} onLogout={handleLogout} />
-      <div className="min-h-screen bg-[#FAF8F5] text-gray-800 pb-20">
+      <div className="min-h-screen bg-[#FAF8F5] text-gray-800">
         {/* 🎯 BANNER ĐẦU TRANG CHUẨN PHONG CÁCH HÌNH 2 */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6">
           <div
@@ -312,10 +400,20 @@ export default function BlogDetailPage() {
                 <IconArrowLeft className="w-4 h-4" /> Quay lại danh sách Blog
               </Link>
 
-              <div className="inline-block px-3.5 py-1 rounded-full border border-[#ECA921]/40 bg-[#ECA921]/10">
-                <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#ECA921]">
-                  {post.category}
-                </span>
+              <div className="flex items-center gap-2">
+                {isLoggedIn && (
+                  <Link
+                    href="/admin/blog"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#ECA921] text-gray-950 text-[11px] font-extrabold hover:bg-[#D89512] transition-colors"
+                  >
+                    <IconEdit className="w-3.5 h-3.5" /> Quản lý Blog (Admin)
+                  </Link>
+                )}
+                <div className="inline-block px-3.5 py-1 rounded-full border border-[#ECA921]/40 bg-[#ECA921]/10">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#ECA921]">
+                    {post.category}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -353,7 +451,7 @@ export default function BlogDetailPage() {
         </div>
 
         {/* BỐ CỤC CHÍNH: 8 CỘT NỘI DUNG + 4 CỘT SIDEBAR */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 pb-20">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* CỘT TRÁI (8 CỘT): NỘI DUNG BÀI VIẾT */}
             <article className="lg:col-span-8 bg-white rounded-3xl shadow-sm border border-amber-100 overflow-hidden">
@@ -372,93 +470,224 @@ export default function BlogDetailPage() {
                   {post.excerpt}
                 </p>
 
-                {/* Hộp Điểm Chính (Key Takeaways) */}
-                <div className="bg-gradient-to-br from-amber-50/90 to-amber-100/40 border border-amber-200 rounded-2xl p-6 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#8C5210]">
-                    <IconFlame className="w-4 h-4 text-[#ECA921]" />
-                    Tóm tắt nội dung quan trọng
-                  </div>
-                  <ul className="space-y-2.5">
-                    {post.keyTakeaways.map((point, index) => (
-                      <li
-                        key={index}
-                        className="flex items-start gap-2.5 text-xs sm:text-sm font-semibold text-gray-800 leading-relaxed"
-                      >
-                        <span className="w-5 h-5 rounded-full bg-[#ECA921] text-gray-950 font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                          {index + 1}
-                        </span>
-                        <span>{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Các phần nội dung chi tiết */}
-                <div className="space-y-8">
-                  {post.sections.map((sec, idx) => (
-                    <div key={idx} id={`section-${idx}`} className="space-y-4">
-                      <h2 className="text-xl sm:text-2xl font-black text-gray-900">
-                        {sec.heading}
-                      </h2>
-                      {sec.content.map((para, pIdx) => (
-                        <p
-                          key={pIdx}
-                          className="text-sm sm:text-base text-gray-700 leading-relaxed"
+                {/* Hộp Điểm Chính (Key Takeaways) - Hiển thị cho cả bài mẫu lẫn bài Word có dòng "Tóm tắt:" */}
+                {extractedTakeaways.length > 0 && (
+                  <div className="bg-gradient-to-br from-amber-50/90 to-amber-100/40 border border-amber-200 rounded-2xl p-6 space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#8C5210]">
+                      <IconFlame className="w-4 h-4 text-[#ECA921]" />
+                      Tóm tắt nội dung quan trọng
+                    </div>
+                    <ul className="space-y-2.5">
+                      {extractedTakeaways.map((point, index) => (
+                        <li
+                          key={index}
+                          className="flex items-start gap-2.5 text-xs sm:text-sm font-semibold text-gray-800 leading-relaxed"
                         >
-                          {para}
-                        </p>
+                          <span className="w-5 h-5 rounded-full bg-[#ECA921] text-gray-950 font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                            {index + 1}
+                          </span>
+                          <span>{point}</span>
+                        </li>
                       ))}
-
-                      {sec.highlightBox && (
-                        <div className="bg-gray-900 text-amber-100 p-5 rounded-2xl border border-amber-500/30 flex items-start gap-3.5 shadow-md my-4">
-                          <IconBulb className="w-6 h-6 text-[#ECA921] shrink-0 mt-0.5" />
-                          <p className="text-xs sm:text-sm leading-relaxed font-medium">
-                            {sec.highlightBox}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Bảng So Sánh Thông Số (Nếu có) */}
-                {post.comparisonTable && (
-                  <div className="space-y-3 pt-2">
-                    <h3 className="text-lg font-black text-gray-900">
-                      Bảng Tra Cứu Nhanh Quy Cách Cho Bếp Nhà Hàng
-                    </h3>
-                    <div className="border border-amber-200 rounded-2xl overflow-hidden shadow-xs overflow-x-auto">
-                      <table className="w-full text-left text-xs sm:text-sm divide-y divide-gray-200">
-                        <thead className="bg-[#ECA921]/20 font-extrabold text-[#4A2E16]">
-                          <tr>
-                            {post.comparisonTable.headers.map((h, i) => (
-                              <th key={i} className="p-3.5 whitespace-nowrap">
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 bg-white">
-                          {post.comparisonTable.rows.map((row, rIdx) => (
-                            <tr key={rIdx} className="hover:bg-amber-50/40">
-                              {row.map((cell, cIdx) => (
-                                <td
-                                  key={cIdx}
-                                  className={`p-3.5 ${
-                                    cIdx === 0
-                                      ? "font-bold text-gray-900"
-                                      : "text-gray-700 font-medium"
-                                  }`}
-                                >
-                                  {cell}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    </ul>
                   </div>
+                )}
+
+                {/* TRƯỜNG HỢP 1: BÀI VIẾT TỪ FILE WORD (MARKDOWN) */}
+                {cleanedMarkdown ? (
+                  <div className="space-y-4">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        h2: ({ children, ...props }) => {
+                          const currentId = `md-section-${markdownH2Index++}`;
+                          return (
+                            <h2
+                              id={currentId}
+                              className="text-xl sm:text-2xl font-black text-gray-900 pt-4"
+                              {...props}
+                            >
+                              {children}
+                            </h2>
+                          );
+                        },
+                        h3: ({ children, ...props }) => (
+                          <h3
+                            className="text-lg font-black text-gray-900 pt-2"
+                            {...props}
+                          >
+                            {children}
+                          </h3>
+                        ),
+                        ul: ({ children, ...props }) => (
+                          <ul
+                            className="space-y-2 pl-5 list-disc marker:text-[#ECA921]"
+                            {...props}
+                          >
+                            {children}
+                          </ul>
+                        ),
+                        li: ({ children, ...props }) => (
+                          <li
+                            className="text-sm sm:text-base text-gray-700 leading-relaxed"
+                            {...props}
+                          >
+                            {children}
+                          </li>
+                        ),
+                        img: ({ src, alt }) => (
+                          <div className="my-5 rounded-2xl overflow-hidden border border-amber-200 shadow-md">
+                            <img
+                              src={src}
+                              alt={alt || ""}
+                              className="w-full h-auto object-cover"
+                            />
+                          </div>
+                        ),
+                        // Tự động bắt câu bắt đầu bằng "Mẹo:" hoặc "Lưu ý:" để đóng khung đen viền vàng
+                        p: ({ children, ...props }) => {
+                          const rawText =
+                            extractTextFromChildren(children).trim();
+
+                          if (
+                            /^(mẹo|mẹo nhỏ|mẹo từ bếp trưởng|lưu ý|lưu ý quan trọng)\s*:/i.test(
+                              rawText,
+                            )
+                          ) {
+                            return (
+                              <div className="bg-gray-900 text-amber-100 p-5 rounded-2xl border border-amber-500/30 flex items-start gap-3.5 shadow-md my-4">
+                                <IconBulb className="w-6 h-6 text-[#ECA921] shrink-0 mt-0.5" />
+                                <p className="text-xs sm:text-sm leading-relaxed font-medium">
+                                  {children}
+                                </p>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <p
+                              className="text-sm sm:text-base text-gray-700 leading-relaxed"
+                              {...props}
+                            >
+                              {children}
+                            </p>
+                          );
+                        },
+                        // Tự động bọc Table trong Word giống hệt Bảng Tra Cứu Nhanh của bạn
+                        table: ({ children, ...props }) => (
+                          <div className="space-y-3 pt-2 my-6">
+                            <div className="border border-amber-200 rounded-2xl overflow-hidden shadow-xs overflow-x-auto">
+                              <table
+                                className="w-full text-left text-xs sm:text-sm divide-y divide-gray-200"
+                                {...props}
+                              >
+                                {children}
+                              </table>
+                            </div>
+                          </div>
+                        ),
+                        thead: ({ children, ...props }) => (
+                          <thead
+                            className="bg-[#ECA921]/20 font-extrabold text-[#4A2E16]"
+                            {...props}
+                          >
+                            {children}
+                          </thead>
+                        ),
+                        th: ({ children, ...props }) => (
+                          <th className="p-3.5 whitespace-nowrap" {...props}>
+                            {children}
+                          </th>
+                        ),
+                        td: ({ children, ...props }) => (
+                          <td
+                            className="p-3.5 text-gray-700 font-medium border-t border-gray-100 hover:bg-amber-50/40"
+                            {...props}
+                          >
+                            {children}
+                          </td>
+                        ),
+                      }}
+                    >
+                      {cleanedMarkdown}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  /* TRƯỜNG HỢP 2: DỮ LIỆU MẪU CẤU TRÚC SECTIONS & COMPARISON TABLE */
+                  <>
+                    <div className="space-y-8">
+                      {(post.sections || []).map((sec, idx) => (
+                        <div
+                          key={idx}
+                          id={`section-${idx}`}
+                          className="space-y-4"
+                        >
+                          <h2 className="text-xl sm:text-2xl font-black text-gray-900">
+                            {sec.heading}
+                          </h2>
+                          {sec.content.map((para, pIdx) => (
+                            <p
+                              key={pIdx}
+                              className="text-sm sm:text-base text-gray-700 leading-relaxed"
+                            >
+                              {para}
+                            </p>
+                          ))}
+
+                          {sec.highlightBox && (
+                            <div className="bg-gray-900 text-amber-100 p-5 rounded-2xl border border-amber-500/30 flex items-start gap-3.5 shadow-md my-4">
+                              <IconBulb className="w-6 h-6 text-[#ECA921] shrink-0 mt-0.5" />
+                              <p className="text-xs sm:text-sm leading-relaxed font-medium">
+                                {sec.highlightBox}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {post.comparisonTable && (
+                      <div className="space-y-3 pt-2">
+                        <h3 className="text-lg font-black text-gray-900">
+                          Bảng Tra Cứu Nhanh Quy Cách Cho Bếp Nhà Hàng
+                        </h3>
+                        <div className="border border-amber-200 rounded-2xl overflow-hidden shadow-xs overflow-x-auto">
+                          <table className="w-full text-left text-xs sm:text-sm divide-y divide-gray-200">
+                            <thead className="bg-[#ECA921]/20 font-extrabold text-[#4A2E16]">
+                              <tr>
+                                {post.comparisonTable.headers.map((h, i) => (
+                                  <th
+                                    key={i}
+                                    className="p-3.5 whitespace-nowrap"
+                                  >
+                                    {h}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 bg-white">
+                              {post.comparisonTable.rows.map((row, rIdx) => (
+                                <tr key={rIdx} className="hover:bg-amber-50/40">
+                                  {row.map((cell, cIdx) => (
+                                    <td
+                                      key={cIdx}
+                                      className={`p-3.5 ${
+                                        cIdx === 0
+                                          ? "font-bold text-gray-900"
+                                          : "text-gray-700 font-medium"
+                                      }`}
+                                    >
+                                      {cell}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Chân bài viết: Tags & Chia sẻ */}
@@ -467,7 +696,7 @@ export default function BlogDetailPage() {
                     <span className="text-xs font-bold text-gray-500 flex items-center gap-1">
                       <IconTag className="w-4 h-4 text-[#ECA921]" /> Từ khóa:
                     </span>
-                    {post.tags.map((tag, i) => (
+                    {(post.tags || []).map((tag, i) => (
                       <span
                         key={i}
                         className="text-xs font-semibold bg-amber-50 text-[#8C5210] border border-amber-200/70 px-3 py-1 rounded-full"
@@ -501,25 +730,27 @@ export default function BlogDetailPage() {
             {/* CỘT PHẢI (4 CỘT): SIDEBAR MỤC LỤC & NHẬN BÁO GIÁ SỈ */}
             <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
               {/* 1. Mục lục bài viết */}
-              <div className="bg-white rounded-2xl p-6 border border-amber-200/60 shadow-sm">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-900 pb-3 border-b border-gray-100">
-                  <IconBook className="w-4 h-4 text-[#ECA921]" />
-                  Nội dung chính trong bài
+              {tocItems.length > 0 && (
+                <div className="bg-white rounded-2xl p-6 border border-amber-200/60 shadow-sm">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-900 pb-3 border-b border-gray-100">
+                    <IconBook className="w-4 h-4 text-[#ECA921]" />
+                    Nội dung chính trong bài
+                  </div>
+                  <ul className="mt-4 space-y-2.5 text-xs font-semibold text-gray-600">
+                    {tocItems.map((item, idx) => (
+                      <li key={idx}>
+                        <a
+                          href={`#${item.id}`}
+                          className="flex items-center gap-2 hover:text-[#B8731B] transition-colors py-1"
+                        >
+                          <IconChevronRight className="w-3.5 h-3.5 text-[#ECA921] shrink-0" />
+                          <span className="line-clamp-1">{item.label}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <ul className="mt-4 space-y-2.5 text-xs font-semibold text-gray-600">
-                  {post.sections.map((sec, idx) => (
-                    <li key={idx}>
-                      <a
-                        href={`#section-${idx}`}
-                        className="flex items-center gap-2 hover:text-[#B8731B] transition-colors py-1"
-                      >
-                        <IconChevronRight className="w-3.5 h-3.5 text-[#ECA921] shrink-0" />
-                        <span className="line-clamp-1">{sec.heading}</span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              )}
 
               {/* 2. Thẻ Đặt Hàng / Báo Giá B2B qua Zalo */}
               <div
@@ -540,7 +771,6 @@ export default function BlogDetailPage() {
                   kèm chính sách cắt thái theo yêu cầu.
                 </p>
 
-                {/* Thông báo khi đã copy */}
                 {copiedQuote && (
                   <div className="bg-emerald-950/90 border border-emerald-400/50 text-emerald-200 text-[11px] p-3 rounded-xl flex items-center gap-2">
                     <IconCheck className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -583,7 +813,7 @@ export default function BlogDetailPage() {
                   {relatedPosts.map((rel) => (
                     <Link
                       key={rel.id}
-                      href={`/blog/${rel.id}`}
+                      href={`/blog/${rel.slug || rel.id}`}
                       className="flex gap-3.5 group items-center"
                     >
                       <img
