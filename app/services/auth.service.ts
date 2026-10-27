@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api/auth"; // 👈 Thay đúng URL Backend của bạn
+const API_URL = process.env.NEXT_PUBLIC_API_URL; // 👈 Thay đúng URL Backend của bạn
 
 // 1. HAM DANG NHAP
 export async function loginApi(email: string, password: string) {

@@ -113,7 +113,7 @@ const proteinFilters = [
   { id: "TRÂU", label: "Thịt Trâu" },
 ];
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const fetcher = (url: string) =>
   fetch(`${API_BASE_URL}${url}`).then((res) => res.json());
