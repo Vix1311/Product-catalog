@@ -64,15 +64,6 @@ export default function NotFoundPage() {
 
         {/* Cụm 3 nút điều hướng */}
         <div className="pt-4 flex flex-wrap items-center justify-center gap-3.5">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="cursor-pointer px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-amber-100 border border-amber-500/30 text-xs font-bold transition-all flex items-center gap-2 active:scale-95"
-          >
-            <IconArrowLeft className="w-4 h-4" />
-            <span>Quay Lại Trang Trước</span>
-          </button>
-
           <Link
             href="/"
             className="cursor-pointer px-6 py-3 rounded-xl bg-[#ECA921] hover:bg-[#D89512] text-gray-950 font-black text-xs uppercase tracking-wider shadow-lg transition-all flex items-center gap-2 active:scale-95"

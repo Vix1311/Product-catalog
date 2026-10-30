@@ -18,6 +18,7 @@ import {
 import Footer from "@/components/Footer";
 import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "@/app/services/auth.service";
+import NotFoundPage from "@/app/not-found";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -66,17 +67,6 @@ export default function AddProductPage() {
   const [suggestedBrands, setSuggestedBrands] = useState<typeof MOCK_BRANDS>(
     [],
   );
-
-  useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem("accessToken");
-      const loggedInState = localStorage.getItem("isLoggedIn");
-      setIsLoggedIn(!!(token && loggedInState === "true"));
-    };
-    checkAuth();
-    window.addEventListener("storage", checkAuth);
-    return () => window.removeEventListener("storage", checkAuth);
-  }, []);
 
   const handleLogout = async () => {
     try {
@@ -232,6 +222,30 @@ export default function AddProductPage() {
         ? "border-red-500 bg-red-50/50 focus:ring-2 focus:ring-red-200"
         : "border-gray-200 focus:border-[#ECA921] focus:ring-2 focus:ring-[#ECA921]/20"
     }`;
+
+  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem("accessToken");
+      const loggedInState = localStorage.getItem("isLoggedIn");
+      const isValid = !!(token && loggedInState === "true");
+
+      if (!isValid) {
+        router.replace("/"); // Đẩy thẳng về trang chủ nếu LocalStorage trống
+      } else {
+        setIsLoggedIn(true);
+        setIsCheckingAuth(false); // Mở khóa cho phép hiển thị
+      }
+    };
+    checkAuth();
+    window.addEventListener("storage", checkAuth);
+    return () => window.removeEventListener("storage", checkAuth);
+  }, [router]);
+
+  if (isCheckingAuth) {
+    return <NotFoundPage />;
+  }
 
   return (
     <div>

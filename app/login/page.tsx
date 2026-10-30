@@ -11,8 +11,10 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 1. Cập nhật type của event để nhận cả sự kiện submit form và sự kiện bàn phím
+  const handleLogin = async (e?: React.FormEvent | React.KeyboardEvent) => {
+    // Chặn hành vi reload trang mặc định của trình duyệt an toàn hơn
+    if (e) e.preventDefault();
 
     if (!email || !password) {
       setError("Vui lòng nhập đầy đủ email và mật khẩu!");
@@ -23,15 +25,11 @@ export default function LoginPage() {
       setLoading(true);
       setError("");
 
-      // 1. Call API Login
       await loginApi(email, password);
 
       alert("Đăng nhập thành công!");
 
-      // 2. Bắn sự kiện thông báo LocalStorage đã thay đổi cho các Tab/Component khác
       window.dispatchEvent(new Event("storage"));
-
-      // 3. Chuyển hướng về trang chủ
       router.replace("/");
       router.refresh();
     } catch (err: any) {
@@ -41,6 +39,13 @@ export default function LoginPage() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 2. Tách hàm xử lý phím Enter để dùng chung cho các input
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleLogin(e);
     }
   };
 
@@ -76,6 +81,8 @@ export default function LoginPage() {
                 setEmail(e.target.value);
                 setError("");
               }}
+              // 3. Thêm sự kiện bắt phím Enter
+              onKeyDown={handleKeyDown}
             />
           </div>
 
@@ -93,6 +100,8 @@ export default function LoginPage() {
                   setPassword(e.target.value);
                   setError("");
                 }}
+                // 4. Thêm sự kiện bắt phím Enter
+                onKeyDown={handleKeyDown}
               />
               <button
                 type="button"

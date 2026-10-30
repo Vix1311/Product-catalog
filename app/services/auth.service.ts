@@ -4,7 +4,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL; // 👈 Thay đúng URL Backend
 
 // 1. HAM DANG NHAP
 export async function loginApi(email: string, password: string) {
-  const response = await axios.post(`${API_URL}/login`, { email, password });
+  const response = await axios.post(`${API_URL}/api/auth/login`, {
+    email,
+    password,
+  });
 
   // Lấy dữ liệu trả về từ API (Response body)
   const data = response.data;
@@ -14,12 +17,16 @@ export async function loginApi(email: string, password: string) {
   const refreshToken = data.refresh_token;
 
   if (accessToken) {
-    // 🚀 LƯU VÀO LOCALSTORAGE
+    // 1. Lưu vào LocalStorage như cũ
     localStorage.setItem("accessToken", accessToken);
     if (refreshToken) {
       localStorage.setItem("refreshToken", refreshToken);
     }
     localStorage.setItem("isLoggedIn", "true");
+
+    // 2. 🚀 LƯU THÊM VÀO COOKIE CHO MIDDLEWARE ĐỌC ĐƯỢC (Sống 1 ngày = 86400s)
+    document.cookie = `accessToken=${accessToken}; path=/; max-age=86400; SameSite=Lax`;
+    document.cookie = `isLoggedIn=true; path=/; max-age=86400; SameSite=Lax`;
   } else {
     throw new Error("Không nhận được token từ hệ thống!");
   }
@@ -42,6 +49,17 @@ export async function refreshTokenApi() {
   } catch (error) {
     logoutApi(); // Nếu Refresh Token cũng hết hạn -> Bắt đăng xuất luôn
     throw error;
+  } finally {
+    // 1. Xóa LocalStorage
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("isLoggedIn");
+
+    // 2. 🧹 XÓA SẠCH COOKIE (Bằng cách set thời gian sống về quá khứ)
+    document.cookie =
+      "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie =
+      "isLoggedIn=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
   }
 }
 // 2. HAM DANG XUAT

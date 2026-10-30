@@ -25,6 +25,7 @@ import {
 import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "../services/auth.service";
 import Footer from "@/components/Footer";
+import NotFoundPage from "../not-found";
 
 // 1. INTERFACES TỪ API RESPONSE
 interface ApiBrand {
@@ -124,19 +125,27 @@ function AdminCatalogContent() {
   const excelInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 1. Trạng thái Đăng nhập
+  // 1. Trạng thái Đăng nhập & Chặn truy cập
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true); // Thêm state khóa màn hình
 
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem("accessToken");
       const loggedInState = localStorage.getItem("isLoggedIn");
-      setIsLoggedIn(!!(token && loggedInState === "true"));
+      const isValid = !!(token && loggedInState === "true");
+
+      if (!isValid) {
+        router.replace("/"); // Đẩy thẳng về trang chủ nếu LocalStorage trống
+      } else {
+        setIsLoggedIn(true);
+        setIsCheckingAuth(false); // Mở khóa cho phép hiển thị
+      }
     };
     checkAuth();
     window.addEventListener("storage", checkAuth);
     return () => window.removeEventListener("storage", checkAuth);
-  }, []);
+  }, [router]);
 
   const handleLogout = async () => {
     try {
@@ -629,6 +638,10 @@ function AdminCatalogContent() {
       alert(`Lỗi khi xóa: ${err.message}`);
     }
   };
+
+  if (isCheckingAuth) {
+    return <NotFoundPage />;
+  }
 
   return (
     <div>

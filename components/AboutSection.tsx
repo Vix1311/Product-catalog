@@ -40,7 +40,7 @@ export default function AboutSection() {
   ];
 
   return (
-    <section className="py-12  my-8 border-t border-gray-200">
+    <section className="py-10">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8   ">
         {/* 1. Tiêu đề & Giới thiệu */}
         <div className="text-center max-w-4xl mx-auto mb-12">

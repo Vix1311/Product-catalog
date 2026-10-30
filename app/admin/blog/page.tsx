@@ -17,6 +17,8 @@ import {
 import Footer from "@/components/Footer";
 import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "@/app/services/auth.service";
+import { useRouter } from "next/navigation";
+import NotFoundPage from "@/app/not-found";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -29,6 +31,7 @@ interface PostSummary {
   readTime: string;
   imageUrl: string;
   featured: boolean;
+  createdAt?: string;
 }
 
 const CATEGORIES = [
@@ -52,18 +55,29 @@ export default function AdminBlogPage() {
   const [featured, setFeatured] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [toastMsg, setToastMsg] = useState<string>("");
+  const router = useRouter();
+
+  // 1. Trạng thái Đăng nhập & Chặn truy cập
+  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true); // Thêm state khóa màn hình
 
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem("accessToken");
       const loggedInState = localStorage.getItem("isLoggedIn");
-      setIsLoggedIn(!!(token && loggedInState === "true"));
+      const isValid = !!(token && loggedInState === "true");
+
+      if (!isValid) {
+        router.replace("/"); // Đẩy thẳng về trang chủ nếu LocalStorage trống
+      } else {
+        setIsLoggedIn(true);
+        setIsCheckingAuth(false); // Mở khóa cho phép hiển thị
+      }
     };
     checkAuth();
     window.addEventListener("storage", checkAuth);
     return () => window.removeEventListener("storage", checkAuth);
-  }, []);
-
+  }, [router]);
+  
   const handleLogout = async () => {
     try {
       await logoutApi();
@@ -75,13 +89,27 @@ export default function AdminBlogPage() {
     }
   };
 
+  // 🎯 FIX: Lấy đúng cấu trúc dữ liệu { posts: [...] } từ Backend trả về
   const fetchAllPosts = async () => {
     setLoadingPosts(true);
     try {
       const res = await fetch(`${API_BASE}/api/posts`);
       if (res.ok) {
         const data = await res.json();
-        setPosts(data);
+        const rawPosts = Array.isArray(data) ? data : data.posts || [];
+
+        const formattedPosts = rawPosts.map((item: any) => ({
+          ...item,
+          date: item.createdAt
+            ? new Date(item.createdAt).toLocaleDateString("vi-VN", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              })
+            : "Đang cập nhật",
+        }));
+
+        setPosts(formattedPosts);
       }
     } catch (err) {
       console.error("Chưa kết nối được API posts:", err);
@@ -93,6 +121,10 @@ export default function AdminBlogPage() {
   useEffect(() => {
     fetchAllPosts();
   }, []);
+
+  if (isCheckingAuth) {
+    return <NotFoundPage />;
+  }
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -149,6 +181,7 @@ export default function AdminBlogPage() {
     }
   };
 
+  // 🎯 API DELETE: Xóa bài viết theo ID
   const handleDeletePost = async (id: string, postTitle: string) => {
     if (!confirm(`Bạn có chắc muốn xóa bài viết "${postTitle}" không?`)) return;
 
@@ -161,10 +194,11 @@ export default function AdminBlogPage() {
       if (res.ok) {
         setPosts((prev) => prev.filter((p) => p.id !== id));
       } else {
-        alert("Không thể xóa bài viết.");
+        alert("Không thể xóa bài viết từ hệ thống.");
       }
     } catch (err) {
-      console.error(err);
+      console.error("Lỗi khi gọi API xóa:", err);
+      alert("Lỗi kết nối khi xóa bài viết.");
     }
   };
 
@@ -172,7 +206,7 @@ export default function AdminBlogPage() {
     <div>
       <StickyHeader isLoggedIn={isLoggedIn} onLogout={handleLogout} />
       <div className="min-h-screen bg-[#FAF8F5] text-gray-800">
-        {/* 🎯 BANNER QUẢN TRỊ BLOG */}
+        {/* BANNER QUẢN TRỊ BLOG */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6">
           <div
             className="w-full rounded-[28px] py-10 px-6 sm:px-12 shadow-2xl border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -205,7 +239,7 @@ export default function AdminBlogPage() {
           </div>
         </div>
 
-        {/* NỘI DUNG CHÍNH: 5 CỘT FORM IMPORT WORD + 7 CỘT DANH SÁCH BÀI VIẾT */}
+        {/* NỘI DUNG CHÍNH */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 pb-20">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* CỘT TRÁI (5 CỘT): FORM UPLOAD FILE WORD */}
@@ -221,24 +255,43 @@ export default function AdminBlogPage() {
                 onSubmit={handleCreatePost}
                 className="p-6 space-y-4 text-xs"
               >
-                {/* Hộp hướng dẫn quy tắc gõ trong Word */}
-                <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 space-y-1.5 text-gray-700">
-                  <div className="font-black text-[#8C5210] flex items-center gap-1.5">
+                {/* 📝 NOTE QUAN TRỌNG: HƯỚNG DẪN FORMAT WORD KHỚP TRANG CHI TIẾT */}
+                <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 space-y-2 text-gray-700 shadow-xs">
+                  <div className="font-black text-[#8C5210] flex items-center gap-1.5 text-sm">
                     <IconBulb className="w-4 h-4 text-[#ECA921]" />
-                    Cách trình bày trong Word để tự lên khung đẹp:
+                    Note định dạng file Word (.docx):
                   </div>
-                  <p>
-                    • Gõ <strong>Tóm tắt: Ý 1; Ý 2; Ý 3</strong> → Tự động vào
-                    hộp <em>Tóm tắt nội dung quan trọng (1, 2, 3)</em>.
-                  </p>
-                  <p>
-                    • Gõ <strong>Mẹo: ...</strong> hoặc{" "}
-                    <strong>Lưu ý: ...</strong> → Tự động vào hộp đen viền vàng.
-                  </p>
-                  <p>
-                    • Kẻ <strong>Bảng (Table)</strong> trong Word → Tự động
-                    thành <em>Bảng Tra Cứu Nhanh</em> màu hổ phách.
-                  </p>
+                  <ul className="space-y-1.5 pl-4 list-disc text-xs text-gray-600">
+                    <li>
+                      <strong>Tóm tắt nội dung:</strong> Gõ dòng bắt đầu bằng{" "}
+                      <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">
+                        Tóm tắt: Ý 1; Ý 2; Ý 3
+                      </code>{" "}
+                      để tự động sinh hộp điểm chính dạng số 1, 2, 3 ở trang chi
+                      tiết.
+                    </li>
+                    <li>
+                      <strong>Hộp lưu ý / Mẹo:</strong> Gõ câu bắt đầu bằng{" "}
+                      <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">
+                        Mẹo: ...
+                      </code>{" "}
+                      hoặc{" "}
+                      <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">
+                        Lưu ý: ...
+                      </code>{" "}
+                      để tự động bọc thành khung đen viền vàng.
+                    </li>
+                    <li>
+                      <strong>Bảng tra cứu (Table):</strong> Kẻ bảng trực tiếp
+                      trong Word, hệ thống sẽ tự động chuyển hóa thành Bảng Tra
+                      Cứu Nhanh chuẩn màu Hổ Phách.
+                    </li>
+                    <li>
+                      <strong>Tiêu đề mục (Heading):</strong> Dùng Heading 2
+                      (##) trong Word để hệ thống tự động bóc tách thành danh
+                      sách Mục lục ở cột phải trang chi tiết.
+                    </li>
+                  </ul>
                 </div>
 
                 {/* 1. Chọn File Word */}
@@ -428,7 +481,10 @@ export default function AdminBlogPage() {
                     >
                       <div className="flex items-center gap-4 min-w-0">
                         <img
-                          src={item.imageUrl}
+                          src={
+                            item.imageUrl ||
+                            "https://placehold.co/200x150?text=No+Img"
+                          }
                           alt={item.title}
                           className="w-20 h-14 rounded-xl object-cover shrink-0 border border-amber-200"
                         />
