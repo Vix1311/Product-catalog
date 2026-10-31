@@ -12,7 +12,7 @@ import {
   IconLoader2,
 } from "@tabler/icons-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 interface BlogPostItem {
   id: string;

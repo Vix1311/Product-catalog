@@ -14,7 +14,7 @@ import { logoutApi } from "../services/auth.service";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 interface BlogPost {
   id: string;

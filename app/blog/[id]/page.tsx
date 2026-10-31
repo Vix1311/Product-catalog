@@ -20,7 +20,7 @@ import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "@/app/services/auth.service";
 import rehypeRaw from "rehype-raw";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 export interface BlogPostDetail {
   id: string;

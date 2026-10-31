@@ -20,7 +20,7 @@ import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "@/app/services/auth.service";
 import NotFoundPage from "@/app/not-found";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 type ProductInput = {
   id?: string;
