@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginApi } from "../services/auth.service";
+import toast from "react-hot-toast";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function LoginPage() {
 
       await loginApi(email, password);
 
-      alert("Đăng nhập thành công!");
+      toast.success("Đăng nhập thành công!");
 
       window.dispatchEvent(new Event("storage"));
       router.replace("/");

@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useMemo, useRef, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import {
   IconCheck,
   IconX,
@@ -117,7 +118,7 @@ export default function AddProductPage() {
     }
   };
 
-  // 🎯 XỬ LÝ SUBMIT CHUẨN: TẠO SẢN PHẨM -> GỌI PATCH /api/products/:id/image
+  // 🚀 XỬ LÝ SUBMIT CHUẨN: TẠO SẢN PHẨM -> GỌI PATCH /api/products/:id/image
   const handleFinalSubmit = async () => {
     const newErrors: Record<string, boolean> = {};
 
@@ -142,12 +143,12 @@ export default function AddProductPage() {
     setErrors(newErrors);
 
     if (!isValid) {
-      alert("Vui lòng không để trống các trường thông tin sản phẩm!");
+      toast.error("Vui lòng không để trống các trường thông tin sản phẩm!");
       return;
     }
 
     if (selectedVariants.length === 0) {
-      alert("Vui lòng chọn ít nhất 1 thương hiệu!");
+      toast.error("Vui lòng chọn ít nhất 1 thương hiệu!");
       return;
     }
 
@@ -206,11 +207,11 @@ export default function AddProductPage() {
           );
         }
       }
-      alert("Đã lưu thông tin và tải ảnh sản phẩm lên thành công!");
+      toast.success("Đã lưu thông tin và tải ảnh sản phẩm lên thành công!");
       router.push("/admin");
     } catch (error: any) {
       console.error("Lỗi khi tạo sản phẩm:", error);
-      alert(`Có lỗi xảy ra: ${error.message}`);
+      toast.error(`Có lỗi xảy ra: ${error.message}`);
     } finally {
       setSubmitting(false);
     }

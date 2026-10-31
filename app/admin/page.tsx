@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useMemo, Suspense, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import useSWR from "swr";
+import toast from "react-hot-toast";
 import ProductDetailModal, {
   ProductDetail,
 } from "@/components/ProductCatalogDetailModal";
@@ -354,11 +355,9 @@ function AdminCatalogContent() {
       }
 
       await mutate();
-      alert(
-        `Import Excel thành công!\nTổng số: ${result.successCount ?? "Tất cả"}/${result.total ?? ""} dòng.`,
-      );
+      toast.success(`Import Excel thành công! Tổng số: ${result.successCount ?? "Tất cả"}/${result.total ?? ""} dòng.`);
     } catch (err: any) {
-      alert(`Lỗi Import Excel: ${err.message}`);
+      toast.error(`Lỗi Import Excel: ${err.message}`);
     } finally {
       setIsUploadingExcel(false);
       if (excelInputRef.current) excelInputRef.current.value = "";
@@ -409,9 +408,9 @@ function AdminCatalogContent() {
         }
 
         await mutate();
-        alert("Đã cập nhật ảnh sản phẩm lên Cloudinary thành công!");
+        toast.success("Đã cập nhật ảnh sản phẩm lên Cloudinary thành công!");
       } catch (err: any) {
-        alert(`Lỗi upload ảnh: ${err.message}`);
+        toast.error(`Lỗi upload ảnh: ${err.message}`);
       } finally {
         setIsUploadingImage(false);
         if (imageInputRef.current) imageInputRef.current.value = "";
@@ -484,7 +483,7 @@ function AdminCatalogContent() {
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      alert("Vui lòng nhập tên sản phẩm!");
+      toast.error("Vui lòng nhập tên sản phẩm!");
       return;
     }
 
@@ -557,7 +556,7 @@ function AdminCatalogContent() {
           }
         }
 
-        alert("Đã cập nhật sản phẩm và biến thể thành công!");
+        toast.success("Đã cập nhật sản phẩm và biến thể thành công!");
       } else {
         // Tạo sản phẩm mới
         const createRes = await fetch(`${API_BASE_URL}/api/products`, {
@@ -592,14 +591,14 @@ function AdminCatalogContent() {
           });
         }
 
-        alert("Đã tạo sản phẩm mới thành công!");
+        toast.success("Đã tạo sản phẩm mới thành công!");
       }
 
       await mutate();
       setIsFormModalOpen(false);
       setPendingImageFile(null);
     } catch (err: any) {
-      alert(`Lỗi: ${err.message}`);
+      toast.error(`Lỗi: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -633,9 +632,9 @@ function AdminCatalogContent() {
       if (!res.ok) throw new Error("Xóa sản phẩm thất bại");
 
       await mutate();
-      alert("Đã xóa sản phẩm!");
+      toast.success("Đã xóa sản phẩm!");
     } catch (err: any) {
-      alert(`Lỗi khi xóa: ${err.message}`);
+      toast.error(`Lỗi khi xóa: ${err.message}`);
     }
   };
 

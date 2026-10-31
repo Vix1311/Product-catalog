@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
@@ -6,7 +6,6 @@ import {
   IconFileUpload,
   IconTrash,
   IconEye,
-  IconCheck,
   IconLoader2,
   IconFlame,
   IconPhoto,
@@ -18,6 +17,7 @@ import Footer from "@/components/Footer";
 import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "@/app/services/auth.service";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import NotFoundPage from "@/app/not-found";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
@@ -54,10 +54,9 @@ export default function AdminBlogPage() {
   const [tags, setTags] = useState<string>("Thịt nhập khẩu, Cẩm nang B2B");
   const [featured, setFeatured] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [toastMsg, setToastMsg] = useState<string>("");
   const router = useRouter();
 
-  // 1. Trạng thái Đăng nhập & Chặn truy cập
+  // 1. Trạng thái đăng nhập & Chặn truy cập
   const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true); // Thêm state khóa màn hình
 
   useEffect(() => {
@@ -77,7 +76,7 @@ export default function AdminBlogPage() {
     window.addEventListener("storage", checkAuth);
     return () => window.removeEventListener("storage", checkAuth);
   }, [router]);
-  
+
   const handleLogout = async () => {
     try {
       await logoutApi();
@@ -89,7 +88,7 @@ export default function AdminBlogPage() {
     }
   };
 
-  // 🎯 FIX: Lấy đúng cấu trúc dữ liệu { posts: [...] } từ Backend trả về
+  // 🚀 FIX: Lấy đúng cấu trúc dữ liệu { posts: [...] } từ Backend trả về
   const fetchAllPosts = async () => {
     setLoadingPosts(true);
     try {
@@ -139,7 +138,7 @@ export default function AdminBlogPage() {
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!wordFile) {
-      alert("Vui lòng chọn file Word (.docx) bài viết!");
+      toast.error("Vui lòng chọn file Word (.docx) bài viết!");
       return;
     }
 
@@ -161,8 +160,7 @@ export default function AdminBlogPage() {
       });
 
       if (res.ok) {
-        setToastMsg("Đã đăng bài viết mới từ file Word thành công!");
-        setTimeout(() => setToastMsg(""), 5000);
+        toast.success(`Đã đăng bài viết mới từ file Word thành công!`);
         setWordFile(null);
         setCoverFile(null);
         setCoverPreview("");
@@ -171,17 +169,17 @@ export default function AdminBlogPage() {
         await fetchAllPosts();
       } else {
         const errData = await res.json().catch(() => ({}));
-        alert(`Lỗi: ${errData.message || "Không thể tạo bài viết"}`);
+        toast.error(`Lỗi: ${errData.message || "Không thể tạo bài viết"}`);
       }
     } catch (error) {
       console.error(error);
-      alert("Không thể kết nối tới máy chủ Backend!");
+      toast.error("Không thể kết nối tới máy chủ Backend!");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // 🎯 API DELETE: Xóa bài viết theo ID
+  // 🚀 API DELETE: Xóa bài viết theo ID
   const handleDeletePost = async (id: string, postTitle: string) => {
     if (!confirm(`Bạn có chắc muốn xóa bài viết "${postTitle}" không?`)) return;
 
@@ -194,11 +192,11 @@ export default function AdminBlogPage() {
       if (res.ok) {
         setPosts((prev) => prev.filter((p) => p.id !== id));
       } else {
-        alert("Không thể xóa bài viết từ hệ thống.");
+        toast.error("Không thể xóa bài viết từ hệ thống.");
       }
     } catch (err) {
       console.error("Lỗi khi gọi API xóa:", err);
-      alert("Lỗi kết nối khi xóa bài viết.");
+      toast.error("Lỗi kết nối khi xóa bài viết.");
     }
   };
 
@@ -255,7 +253,7 @@ export default function AdminBlogPage() {
                 onSubmit={handleCreatePost}
                 className="p-6 space-y-4 text-xs"
               >
-                {/* 📝 NOTE QUAN TRỌNG: HƯỚNG DẪN FORMAT WORD KHỚP TRANG CHI TIẾT */}
+                {/* 📌 NOTE QUAN TRỌNG: HƯỚNG DẪN FORMAT WORD KHỚP TRANG CHI TIẾT */}
                 <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 space-y-2 text-gray-700 shadow-xs">
                   <div className="font-black text-[#8C5210] flex items-center gap-1.5 text-sm">
                     <IconBulb className="w-4 h-4 text-[#ECA921]" />
@@ -415,13 +413,6 @@ export default function AdminBlogPage() {
                     Đặt làm Bài Viết Nổi Bật (Hiển thị to ở đầu trang Blog)
                   </span>
                 </label>
-
-                {toastMsg && (
-                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold flex items-center gap-2">
-                    <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>{toastMsg}</span>
-                  </div>
-                )}
 
                 <button
                   type="submit"
