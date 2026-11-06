@@ -97,6 +97,26 @@ function extractTextFromChildren(children: React.ReactNode): string {
   return "";
 }
 
+// Helper chuyển đổi link video (YouTube, Google Drive, hoặc MP4/Cloudinary) thành mã nhúng HTML
+function buildVideoEmbedHtml(rawUrl: string): string {
+  const url = rawUrl.trim();
+  const ytMatch = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i,
+  );
+  if (ytMatch) {
+    return `\n\n<iframe src="https://www.youtube.com/embed/${ytMatch[1]}" title="YouTube video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>\n\n`;
+  }
+
+  const driveMatch = url.match(
+    /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/i,
+  );
+  if (driveMatch) {
+    return `\n\n<iframe src="https://drive.google.com/file/d/${driveMatch[1]}/preview" allow="autoplay" allowfullscreen></iframe>\n\n`;
+  }
+
+  return `\n\n<video controls preload="metadata" src="${url}"></video>\n\n`;
+}
+
 export default function BlogDetailPage() {
   const params = useParams();
   const postId = typeof params?.id === "string" ? params.id : "1";
@@ -129,7 +149,7 @@ export default function BlogDetailPage() {
     const fetchPostFromApi = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/api/posts/${postId}`); //[cite: 8]
+        const res = await fetch(`${API_BASE}/api/posts/${postId}`);
         if (res.ok) {
           const data = await res.json();
           if (data?.post) {
@@ -201,8 +221,11 @@ export default function BlogDetailPage() {
 
     lines.forEach((line) => {
       const trimmed = line.trim();
-      if (/^(tóm tắt|điểm chính)\s*:/i.test(trimmed)) {
-        const cleanedPoint = trimmed.replace(
+      const plainCheck = trimmed.replace(/^[*_]+|[*_]+$/g, "").trim();
+
+      // 1. Bóc tách dòng "Tóm tắt:" hoặc "Điểm chính:"
+      if (/^(tóm tắt|điểm chính)\s*:/i.test(plainCheck)) {
+        const cleanedPoint = plainCheck.replace(
           /^(tóm tắt|điểm chính)\s*:\s*/i,
           "",
         );
@@ -211,12 +234,53 @@ export default function BlogDetailPage() {
           .map((s) => s.trim())
           .filter(Boolean)
           .forEach((item) => extractedTakeaways.push(item));
+      }
+      // 2. Nhận diện dòng bắt đầu bằng "VIDEO:" để hiển thị đúng vị trí trong bài
+      else if (/^video\s*:/i.test(plainCheck)) {
+        const urlPart = plainCheck
+          .replace(/^video\s*:\s*/i, "")
+          .replace(/^[*_]+|[*_]+$/g, "")
+          .trim();
+        const mdLinkMatch = urlPart.match(/\[.*?\]\((https?:\/\/[^\s)]+)\)/i);
+        const rawUrlMatch = urlPart.match(/(https?:\/\/[^\s]+)/i);
+        const videoUrl = mdLinkMatch
+          ? mdLinkMatch[1]
+          : rawUrlMatch
+            ? rawUrlMatch[1]
+            : "";
+
+        if (videoUrl) {
+          remainingLines.push(buildVideoEmbedHtml(videoUrl));
+        } else {
+          remainingLines.push(line);
+        }
+      }
+      // 3. Nhận diện dòng bắt đầu bằng "IMAGE:" hoặc "HÌNH ẢNH:" (nếu chèn ảnh bằng link)
+      else if (/^(image|hình ảnh|hinh anh|ảnh)\s*:/i.test(plainCheck)) {
+        const urlPart = plainCheck
+          .replace(/^(image|hình ảnh|hinh anh|ảnh)\s*:\s*/i, "")
+          .replace(/^[*_]+|[*_]+$/g, "")
+          .trim();
+        const mdLinkMatch = urlPart.match(/\[.*?\]\((https?:\/\/[^\s)]+)\)/i);
+        const rawUrlMatch = urlPart.match(/(https?:\/\/[^\s]+)/i);
+        const imgUrl = mdLinkMatch
+          ? mdLinkMatch[1]
+          : rawUrlMatch
+            ? rawUrlMatch[1]
+            : "";
+
+        if (imgUrl) {
+          remainingLines.push(`\n\n![](${imgUrl})\n\n`);
+        } else {
+          remainingLines.push(line);
+        }
       } else {
         remainingLines.push(line);
       }
     });
     cleanedMarkdown = remainingLines.join("\n");
   }
+
   cleanedMarkdown = cleanedMarkdown.replace(
     /<table>[\s\S]*?<\/table>/gi,
     (tableHtml) => {
@@ -227,7 +291,6 @@ export default function BlogDetailPage() {
         const cells: string[] = [];
         const tdMatches = tr.match(/<(td|th)[\s\S]*?<\/(td|th)>/gi) || [];
         tdMatches.forEach((td) => {
-          // Xóa toàn bộ các thẻ <p>, <strong>, <td> bên trong để lấy mỗi chữ
           const text = td
             .replace(/<\/?(td|th|p|strong|b|span)[^>]*>/gi, "")
             .trim();
@@ -238,7 +301,6 @@ export default function BlogDetailPage() {
 
       if (rows.length === 0) return tableHtml;
 
-      // Tạo bảng chuẩn cú pháp Markdown để remarkGfm tự động đọc được
       const header = `| ${rows[0].join(" | ")} |`;
       const divider = `| ${rows[0].map(() => "---").join(" | ")} |`;
       const body = rows
@@ -267,10 +329,10 @@ export default function BlogDetailPage() {
     return (
       "muc-" +
       text
-        .replace(/\\/g, "") // Xóa dấu \ thừa
+        .replace(/\\/g, "")
         .toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") // Bỏ dấu tiếng Việt
+        .replace(/[\u0300-\u036f]/g, "")
         .replace(/đ/g, "d")
         .replace(/[^a-z0-9\s-]/g, "")
         .trim()
@@ -288,7 +350,6 @@ export default function BlogDetailPage() {
           .split("\n")
           .filter((line) => line.trim().startsWith("## "))
           .map((line) => {
-            // Xóa '## ' ở đầu và xóa dấu '\' thừa trong chuỗi '1\.'
             const cleanLabel = line
               .replace(/^##\s+/, "")
               .replace(/\\/g, "")
@@ -439,18 +500,48 @@ export default function BlogDetailPage() {
                             {children}
                           </li>
                         ),
+                        // Hiển thị Hình ảnh đúng vị trí trong file Word (dùng span block để không lỗi khi nằm trong <p>)
                         img: ({ src, alt }) => (
-                          <div className="my-5 rounded-2xl overflow-hidden border border-amber-200 shadow-md">
+                          <span className="block my-6 rounded-2xl overflow-hidden border border-amber-200 shadow-md bg-gray-50">
                             <img
                               src={src}
                               alt={alt || ""}
-                              className="w-full h-auto object-cover"
+                              className="w-full h-auto object-cover block"
+                              loading="lazy"
+                            />
+                          </span>
+                        ),
+                        // Hiển thị Video trực tiếp (.mp4 / Cloudinary) đúng vị trí dòng VIDEO:
+                        video: ({ src, ...props }) => (
+                          <div className="my-6 rounded-2xl overflow-hidden border border-amber-200 shadow-md bg-gray-950">
+                            <video
+                              src={src}
+                              controls
+                              playsInline
+                              preload="metadata"
+                              className="w-full max-h-[520px] object-contain mx-auto block"
+                              {...props}
+                            />
+                          </div>
+                        ),
+                        // Hiển thị Video nhúng (YouTube / Google Drive) đúng vị trí dòng VIDEO:
+                        iframe: ({ src, title, ...props }) => (
+                          <div className="my-6 rounded-2xl overflow-hidden border border-amber-200 shadow-md bg-gray-950 aspect-video w-full">
+                            <iframe
+                              src={src}
+                              title={title || "Embedded Video"}
+                              className="w-full h-full border-0"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              {...props}
                             />
                           </div>
                         ),
                         p: ({ children, ...props }) => {
                           const rawText =
                             extractTextFromChildren(children).trim();
+
+                          // Hộp Mẹo / Lưu ý
                           if (
                             /^(mẹo|mẹo nhỏ|mẹo từ bếp trưởng|lưu ý|lưu ý quan trọng)\s*:/i.test(
                               rawText,
@@ -465,9 +556,9 @@ export default function BlogDetailPage() {
                               </div>
                             );
                           }
+
                           return (
                             <p
-                              // Thêm class 'whitespace-pre-line' vào đây
                               className="text-sm sm:text-base text-gray-700 leading-relaxed whitespace-pre-line"
                               {...props}
                             >
@@ -476,7 +567,6 @@ export default function BlogDetailPage() {
                           );
                         },
                         table: ({ children, ...props }) => (
-                          // Bọc bảng bằng div bo góc, có viền màu amber và đổ bóng nhẹ giống các hộp highlight
                           <div className="overflow-x-auto my-8 rounded-2xl border border-amber-200 shadow-sm bg-white">
                             <table
                               className="min-w-full border-collapse text-sm"
@@ -487,7 +577,6 @@ export default function BlogDetailPage() {
                           </div>
                         ),
                         thead: ({ children, ...props }) => (
-                          // Header gradient giống hộp "Tóm tắt nội dung"
                           <thead
                             className="bg-gradient-to-r from-amber-50/90 to-amber-100/50 border-b border-amber-200"
                             {...props}
@@ -496,7 +585,6 @@ export default function BlogDetailPage() {
                           </thead>
                         ),
                         tbody: ({ children, ...props }) => (
-                          // Chia đường viền ngang giữa các hàng với màu amber nhạt
                           <tbody
                             className="divide-y divide-amber-100/80"
                             {...props}
@@ -506,7 +594,6 @@ export default function BlogDetailPage() {
                         ),
                         tr: ({ children, ...props }) => (
                           <tr
-                            // Hiệu ứng hover đổi màu nền hàng và ép dòng đầu tiên thành style header (phòng trường hợp API trả về td)
                             className="hover:bg-amber-50/40 transition-colors duration-200 [&:first-child]:bg-amber-50/60 [&:first-child_td]:font-black [&:first-child_td_p]:font-black [&:first-child_td]:text-[#8C5210] [&:first-child_td]:uppercase"
                             {...props}
                           >
@@ -515,7 +602,6 @@ export default function BlogDetailPage() {
                         ),
                         th: ({ children, ...props }) => (
                           <th
-                            // Style chữ cho tiêu đề: in đậm, màu nâu hổ phách, in hoa
                             className="px-5 py-4 text-left font-black text-[#8C5210] uppercase tracking-wider text-xs align-middle"
                             {...props}
                           >
@@ -524,7 +610,6 @@ export default function BlogDetailPage() {
                         ),
                         td: ({ children, ...props }) => (
                           <td
-                            // Style cho dữ liệu: text xám, căn giữa theo chiều dọc, reset margin thẻ p
                             className="px-5 py-4 text-gray-700 font-medium align-middle [&>p]:m-0"
                             {...props}
                           >
@@ -557,19 +642,13 @@ export default function BlogDetailPage() {
                         <a
                           href={`#${item.id}`}
                           onClick={(e) => {
-                            // 1. Chặn hành vi nhảy trang và ghi đè lịch sử mặc định của thẻ <a>
                             e.preventDefault();
-
                             const targetEl = document.getElementById(item.id);
                             if (targetEl) {
-                              // 2. Thực hiện cuộn mượt đến mục tiêu
                               targetEl.scrollIntoView({
                                 behavior: "smooth",
                                 block: "start",
                               });
-
-                              // 3. Cập nhật ID lên thanh URL nhưng DÙNG REPLACE thay vì PUSH
-                              // Nút Back sẽ bỏ qua các ID này và quay thẳng về trang trước đó (danh sách blog)
                               window.history.replaceState(
                                 null,
                                 "",

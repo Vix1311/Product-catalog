@@ -56,8 +56,7 @@ export default function AdminBlogPage() {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const router = useRouter();
 
-  // 1. Trạng thái đăng nhập & Chặn truy cập
-  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true); // Thêm state khóa màn hình
+  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
 
   useEffect(() => {
     const checkAuth = () => {
@@ -66,10 +65,10 @@ export default function AdminBlogPage() {
       const isValid = !!(token && loggedInState === "true");
 
       if (!isValid) {
-        router.replace("/"); // Đẩy thẳng về trang chủ nếu LocalStorage trống
+        router.replace("/");
       } else {
         setIsLoggedIn(true);
-        setIsCheckingAuth(false); // Mở khóa cho phép hiển thị
+        setIsCheckingAuth(false);
       }
     };
     checkAuth();
@@ -88,7 +87,6 @@ export default function AdminBlogPage() {
     }
   };
 
-  // 🚀 FIX: Lấy đúng cấu trúc dữ liệu { posts: [...] } từ Backend trả về
   const fetchAllPosts = async () => {
     setLoadingPosts(true);
     try {
@@ -179,7 +177,6 @@ export default function AdminBlogPage() {
     }
   };
 
-  // 🚀 API DELETE: Xóa bài viết theo ID
   const handleDeletePost = async (id: string, postTitle: string) => {
     if (!confirm(`Bạn có chắc muốn xóa bài viết "${postTitle}" không?`)) return;
 
@@ -224,7 +221,7 @@ export default function AdminBlogPage() {
               </h1>
               <p className="mt-1.5 text-xs sm:text-sm text-gray-300">
                 Tải trực tiếp file Word (.docx) để hệ thống tự động tạo mục lục,
-                khung Mẹo, Bảng tra cứu và đẩy ảnh lên Cloudinary.
+                khung Mẹo, Bảng tra cứu, Video và đẩy ảnh lên Cloudinary.
               </p>
             </div>
 
@@ -265,8 +262,7 @@ export default function AdminBlogPage() {
                       <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">
                         Tóm tắt: Ý 1; Ý 2; Ý 3
                       </code>{" "}
-                      để tự động sinh hộp điểm chính dạng số 1, 2, 3 ở trang chi
-                      tiết.
+                      để tự động sinh hộp điểm chính dạng số 1, 2, 3.
                     </li>
                     <li>
                       <strong>Hộp lưu ý / Mẹo:</strong> Gõ câu bắt đầu bằng{" "}
@@ -280,14 +276,25 @@ export default function AdminBlogPage() {
                       để tự động bọc thành khung đen viền vàng.
                     </li>
                     <li>
-                      <strong>Bảng tra cứu (Table):</strong> Kẻ bảng trực tiếp
-                      trong Word, hệ thống sẽ tự động chuyển hóa thành Bảng Tra
-                      Cứu Nhanh chuẩn màu Hổ Phách.
+                      <strong>Chèn Video xen kẽ:</strong> Tại vị trí muốn hiển
+                      thị video trong Word, gõ trên 1 dòng riêng bắt đầu bằng{" "}
+                      <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">
+                        VIDEO: https://link-video...
+                      </code>{" "}
+                      (hỗ trợ link Cloudinary .mp4 hoặc link YouTube).
                     </li>
                     <li>
-                      <strong>Tiêu đề mục (Heading):</strong> Dùng Heading 2
-                      (##) trong Word để hệ thống tự động bóc tách thành danh
-                      sách Mục lục ở cột phải trang chi tiết.
+                      <strong>Chèn Hình ảnh xen kẽ:</strong> Dán (Paste) trực
+                      tiếp ảnh vào đúng vị trí trong file Word (hệ thống tự đẩy
+                      lên Cloudinary), hoặc gõ dòng{" "}
+                      <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">
+                        IMAGE: https://link-anh...
+                      </code>
+                    </li>
+                    <li>
+                      <strong>Bảng (Table) & Mục lục (Heading 2):</strong> Kẻ
+                      bảng và dùng Heading 2 trong Word để tự động tạo Bảng Tra
+                      Cứu và Mục lục bên phải.
                     </li>
                   </ul>
                 </div>
@@ -306,8 +313,8 @@ export default function AdminBlogPage() {
                         : "Bấm để chọn file .docx từ máy tính"}
                     </span>
                     <span className="text-[11px] text-gray-400 mt-0.5">
-                      Hỗ trợ tự động trích xuất cả ảnh và bảng bên trong file
-                      Word
+                      Hỗ trợ tự động trích xuất cả ảnh, VIDEO: và bảng bên trong
+                      file Word
                     </span>
                     <input
                       type="file"

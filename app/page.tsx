@@ -64,17 +64,13 @@ function HomeContent() {
             }}
           >
             <div className="space-y-2 max-w-2xl relative z-10">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ECA921]/15 border border-[#ECA921]/40 text-[#ECA921] text-[11px] font-bold uppercase tracking-widest">
-                <IconSparkles className="w-3.5 h-3.5" />
-                <span>KHÁNH AN B2B PRODUCT HUB</span>
-              </div>
               <h2 className="text-2xl sm:text-3xl font-black text-[#FFF3D1] tracking-tight">
                 Tra Cứu Toàn Bộ Catalog Thực Phẩm Nhập Khẩu
               </h2>
               <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
                 Xem chi tiết quy cách đóng gói thùng, thương hiệu xuất xứ, độ
                 dày cắt chuẩn và gợi ý thực đơn của hơn{" "}
-                <strong>500+ mặt hàng</strong> chuyên dụng cho kênh Nhà hàng,
+                <strong>100+ mặt hàng</strong> chuyên dụng cho kênh Nhà hàng,
                 Lẩu Nướng & HORECA.
               </p>
             </div>

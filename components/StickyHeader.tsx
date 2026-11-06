@@ -31,12 +31,12 @@ const clientNavLinks = [
   {
     name: "Surimi",
     href: "/catalog?group=surimi",
-    hasDropdown: true,
+    hasDropdown: false,
   },
   {
     name: "ODM/OEM",
     href: "/catalog?group=odm-oem",
-    hasDropdown: true,
+    hasDropdown: false,
   },
   {
     name: "Về Khánh An",
@@ -46,7 +46,7 @@ const clientNavLinks = [
   {
     name: "Blog",
     href: "/blog",
-    hasDropdown: true,
+    hasDropdown: false,
   },
 ];
 
@@ -162,12 +162,7 @@ function StickyHeaderContent({
               <img
                 src="/logo.png"
                 alt="KA Foods Logo"
-                className="h-8 md:h-9 w-auto object-contain transition-transform group-hover:scale-105"
-              />
-              <img
-                src="/logo1.png"
-                alt="Khánh An"
-                className="h-4 md:h-5 w-auto object-contain transition-transform group-hover:scale-105"
+                className="h-8 md:h-11 w-auto object-contain transition-transform group-hover:scale-105"
               />
             </Link>
 
