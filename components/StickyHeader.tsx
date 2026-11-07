@@ -154,7 +154,7 @@ function StickyHeaderContent({
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-amber-100 shadow-sm transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <div className="flex items-center justify-between gap-4">
           {/* 1. LOGO THƯƠNG HIỆU (+ HUY HIỆU ADMIN NẾU ĐANG Ở ROUTE /admin) */}
           <div className="flex items-center gap-3">
