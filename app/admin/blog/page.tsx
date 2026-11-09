@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import {
   IconFileUpload,
@@ -12,6 +12,13 @@ import {
   IconFileText,
   IconBulb,
   IconArrowLeft,
+  IconRefresh,
+  IconSearch,
+  IconFilter,
+  IconTag,
+  IconChevronLeft,
+  IconChevronRight,
+  IconX,
 } from "@tabler/icons-react";
 import Footer from "@/components/Footer";
 import StickyHeader from "@/components/StickyHeader";
@@ -27,6 +34,7 @@ interface PostSummary {
   slug?: string;
   title: string;
   category: string;
+  tags?: string | string[];
   date: string;
   readTime: string;
   imageUrl: string;
@@ -40,10 +48,18 @@ const CATEGORIES = [
   "Xu Hướng Ẩm Thực",
 ];
 
+const ITEMS_PER_PAGE = 7;
+
 export default function AdminBlogPage() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [posts, setPosts] = useState<PostSummary[]>([]);
   const [loadingPosts, setLoadingPosts] = useState<boolean>(true);
+
+  // State Bộ lọc & Phân trang
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [filterCategory, setFilterCategory] = useState<string>("ALL");
+  const [filterTag, setFilterTag] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // State Form thêm bài viết từ File Word
   const [wordFile, setWordFile] = useState<File | null>(null);
@@ -119,6 +135,64 @@ export default function AdminBlogPage() {
     fetchAllPosts();
   }, []);
 
+  // Tự động đưa về trang 1 khi người dùng thay đổi điều kiện tìm kiếm / lọc
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterCategory, filterTag]);
+
+  // Lọc danh sách bài viết theo Search, Chuyên mục và Từ khóa (Tags)
+  const filteredPosts = useMemo(() => {
+    return posts.filter((post) => {
+      // 1. Lọc theo tiêu đề (search)
+      const matchesSearch = post.title
+        ?.toLowerCase()
+        .includes(searchQuery.trim().toLowerCase());
+
+      // 2. Lọc theo chuyên mục
+      const matchesCategory =
+        filterCategory === "ALL" || post.category === filterCategory;
+
+      // 3. Lọc theo từ khóa (tags)
+      let postTagsString = "";
+      if (Array.isArray(post.tags)) {
+        postTagsString = post.tags.join(", ").toLowerCase();
+      } else if (typeof post.tags === "string") {
+        postTagsString = post.tags.toLowerCase();
+      }
+
+      const matchesTag =
+        !filterTag.trim() ||
+        postTagsString.includes(filterTag.trim().toLowerCase());
+
+      return matchesSearch && matchesCategory && matchesTag;
+    });
+  }, [posts, searchQuery, filterCategory, filterTag]);
+
+  // Tính toán phân trang (Tối đa 10 bài / trang)
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredPosts.length / ITEMS_PER_PAGE),
+  );
+
+  // Đảm bảo currentPage không vượt quá totalPages sau khi xóa bài viết
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [filteredPosts.length, totalPages, currentPage]);
+
+  const paginatedPosts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredPosts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredPosts, currentPage]);
+
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setFilterCategory("ALL");
+    setFilterTag("");
+    setCurrentPage(1);
+  };
+
   if (isCheckingAuth) {
     return <NotFoundPage />;
   }
@@ -188,6 +262,7 @@ export default function AdminBlogPage() {
       });
       if (res.ok) {
         setPosts((prev) => prev.filter((p) => p.id !== id));
+        toast.success("Đã xóa bài viết!");
       } else {
         toast.error("Không thể xóa bài viết từ hệ thống.");
       }
@@ -196,6 +271,11 @@ export default function AdminBlogPage() {
       toast.error("Lỗi kết nối khi xóa bài viết.");
     }
   };
+
+  const hasActiveFilters =
+    searchQuery.trim() !== "" ||
+    filterCategory !== "ALL" ||
+    filterTag.trim() !== "";
 
   return (
     <div>
@@ -443,19 +523,84 @@ export default function AdminBlogPage() {
 
             {/* CỘT PHẢI (7 CỘT): DANH SÁCH BÀI VIẾT HIỆN CÓ */}
             <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-amber-100 overflow-hidden">
-              <div className="px-6 py-4 bg-amber-50/60 border-b border-amber-100 flex items-center justify-between">
-                <h2 className="text-base font-black text-gray-900">
-                  Danh Sách Bài Viết Đã Đăng ({posts.length})
-                </h2>
+              {/* HEADER DANH SÁCH & NÚT XÓA BỘ LỌC + NÚT ICON MŨI TÊN VÒNG TRÒN */}
+              <div className="px-6 py-4 bg-amber-50/60 border-b border-amber-100 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h2 className="text-base font-black text-gray-900">
+                    Danh Sách Bài Viết Đã Đăng ({filteredPosts.length}
+                    {hasActiveFilters ? `/${posts.length}` : ""})
+                  </h2>
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="text-[11px] font-bold text-red-600 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <IconX className="w-3.5 h-3.5" /> Xóa bộ lọc
+                    </button>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={fetchAllPosts}
-                  className="text-xs font-bold text-[#B8731B] hover:underline cursor-pointer"
+                  disabled={loadingPosts}
+                  title="Làm mới danh sách"
+                  aria-label="Làm mới danh sách"
+                  className="p-2 rounded-xl bg-white hover:bg-amber-100/80 text-[#B8731B] border border-amber-200/80 shadow-2xs transition-all cursor-pointer active:scale-95 disabled:opacity-50 shrink-0"
                 >
-                  Làm mới danh sách
+                  <IconRefresh
+                    className={`w-4 h-4 ${loadingPosts ? "animate-spin" : ""}`}
+                  />
                 </button>
               </div>
 
+              {/* THANH TÌM KIẾM & BỘ LỌC (SEARCH, CHUYÊN MỤC, TỪ KHÓA) */}
+              <div className="p-4 sm:px-6 bg-gray-50/60 border-b border-gray-100 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                  {/* Ô tìm kiếm tiêu đề */}
+                  <div className="sm:col-span-5 relative">
+                    <IconSearch className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Tìm theo tiêu đề bài viết..."
+                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 bg-white focus:outline-none focus:border-[#ECA921]"
+                    />
+                  </div>
+
+                  {/* Lọc theo chuyên mục */}
+                  <div className="sm:col-span-4 relative">
+                    <IconFilter className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 bg-white focus:outline-none focus:border-[#ECA921] truncate"
+                    >
+                      <option value="ALL">Tất cả chuyên mục</option>
+                      {CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Lọc theo từ khóa (Tags) */}
+                  <div className="sm:col-span-3 relative">
+                    <IconTag className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={filterTag}
+                      onChange={(e) => setFilterTag(e.target.value)}
+                      placeholder="Lọc từ khóa..."
+                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 bg-white focus:outline-none focus:border-[#ECA921]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* DANH SÁCH BÀI VIẾT */}
               <div className="divide-y divide-gray-100">
                 {loadingPosts ? (
                   <div className="p-12 text-center text-xs text-gray-400">
@@ -471,65 +616,166 @@ export default function AdminBlogPage() {
                       bài viết đầu tiên!
                     </p>
                   </div>
+                ) : filteredPosts.length === 0 ? (
+                  <div className="p-12 text-center space-y-2">
+                    <p className="text-sm font-bold text-gray-700">
+                      Không tìm thấy bài viết nào khớp với bộ lọc
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Hãy thử đổi từ khóa tìm kiếm hoặc chọn chuyên mục khác.
+                    </p>
+                  </div>
                 ) : (
-                  posts.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-amber-50/20 transition-colors"
-                    >
-                      <div className="flex items-center gap-4 min-w-0">
-                        <img
-                          src={
-                            item.imageUrl ||
-                            "https://placehold.co/200x150?text=No+Img"
-                          }
-                          alt={item.title}
-                          className="w-20 h-14 rounded-xl object-cover shrink-0 border border-amber-200"
-                        />
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-[#B8731B] bg-amber-100/70 px-2 py-0.5 rounded-md">
-                              {item.category}
-                            </span>
-                            {item.featured && (
-                              <span className="text-[10px] font-black text-gray-950 bg-[#ECA921] px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                                <IconFlame className="w-3 h-3" /> Nổi bật
+                  paginatedPosts.map((item) => {
+                    const tagList = Array.isArray(item.tags)
+                      ? item.tags
+                      : typeof item.tags === "string" && item.tags.trim()
+                        ? item.tags.split(",").map((t) => t.trim())
+                        : [];
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-amber-50/20 transition-colors"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <img
+                            src={
+                              item.imageUrl ||
+                              "https://placehold.co/200x150?text=No+Img"
+                            }
+                            alt={item.title}
+                            className="w-20 h-14 rounded-xl object-cover shrink-0 border border-amber-200"
+                          />
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-[10px] font-bold text-[#B8731B] bg-amber-100/70 px-2 py-0.5 rounded-md">
+                                {item.category}
                               </span>
+                              {item.featured && (
+                                <span className="text-[10px] font-black text-gray-950 bg-[#ECA921] px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                                  <IconFlame className="w-3 h-3" /> Nổi bật
+                                </span>
+                              )}
+                              <span className="text-[11px] text-gray-400">
+                                {item.date}
+                              </span>
+                            </div>
+                            <Link
+                              href={`/blog/${item.slug || item.id}`}
+                              className="block text-sm font-extrabold text-gray-900 truncate hover:text-[#B8731B]"
+                            >
+                              {item.title}
+                            </Link>
+                            {tagList.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                                {tagList.slice(0, 4).map((t, idx) => (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => setFilterTag(t)}
+                                    title={`Lọc theo từ khóa: ${t}`}
+                                    className="text-[10px] text-gray-500 bg-gray-100 hover:bg-amber-100 hover:text-[#8C5210] px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                                  >
+                                    #{t}
+                                  </button>
+                                ))}
+                              </div>
                             )}
-                            <span className="text-[11px] text-gray-400">
-                              {item.date}
-                            </span>
                           </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
                           <Link
                             href={`/blog/${item.slug || item.id}`}
-                            className="block text-sm font-extrabold text-gray-900 truncate hover:text-[#B8731B]"
+                            className="p-2 rounded-xl bg-gray-100 hover:bg-amber-100 text-gray-700 transition-colors"
+                            title="Xem bài viết"
                           >
-                            {item.title}
+                            <IconEye className="w-4 h-4" />
                           </Link>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDeletePost(item.id, item.title)
+                            }
+                            className="cursor-pointer p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
+                            title="Xóa bài viết"
+                          >
+                            <IconTrash className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Link
-                          href={`/blog/${item.slug || item.id}`}
-                          className="p-2 rounded-xl bg-gray-100 hover:bg-amber-100 text-gray-700 transition-colors"
-                          title="Xem bài viết"
-                        >
-                          <IconEye className="w-4 h-4" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePost(item.id, item.title)}
-                          className="cursor-pointer p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
-                          title="Xóa bài viết"
-                        >
-                          <IconTrash className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
+
+              {/* PHÂN TRANG (TỐI ĐA 10 BLOG / TRANG) */}
+              {!loadingPosts && filteredPosts.length > ITEMS_PER_PAGE && (
+                <div className="px-6 py-4 bg-amber-50/40 border-t border-amber-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                  <span className="text-gray-500">
+                    Hiển thị{" "}
+                    <strong className="text-gray-800">
+                      {(currentPage - 1) * ITEMS_PER_PAGE + 1}
+                    </strong>{" "}
+                    -{" "}
+                    <strong className="text-gray-800">
+                      {Math.min(
+                        currentPage * ITEMS_PER_PAGE,
+                        filteredPosts.length,
+                      )}
+                    </strong>{" "}
+                    trên tổng số{" "}
+                    <strong className="text-gray-800">
+                      {filteredPosts.length}
+                    </strong>{" "}
+                    bài viết
+                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(1, prev - 1))
+                      }
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-amber-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                      aria-label="Trang trước"
+                    >
+                      <IconChevronLeft className="w-4 h-4 text-gray-700" />
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                      (page) => (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 rounded-xl font-bold text-xs transition-colors cursor-pointer ${
+                            currentPage === page
+                              ? "bg-[#ECA921] text-gray-950 shadow-xs"
+                              : "bg-white border border-gray-200 text-gray-700 hover:bg-amber-50"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ),
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-amber-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                      aria-label="Trang sau"
+                    >
+                      <IconChevronRight className="w-4 h-4 text-gray-700" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </main>
