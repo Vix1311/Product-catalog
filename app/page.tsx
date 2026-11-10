@@ -4,7 +4,6 @@ import StickyHeader from "@/components/StickyHeader";
 import HeroBanner from "@/components/HeroBanner";
 import CategoryBanners from "@/components/CategoryBanners";
 import AboutSection from "@/components/AboutSection";
-import TrustSection from "@/components/TrustSection";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import MindmapSection from "@/components/MindmapSection";
@@ -16,6 +15,7 @@ import {
   IconBookDownload,
 } from "@tabler/icons-react";
 import PartnerSection from "@/components/ui/PartnerSection";
+import BlogSection from "@/components/BlogSection";
 
 function HomeContent() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -94,7 +94,7 @@ function HomeContent() {
         <PartnerSection />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
           {/* 5. GÓC ẨM THỰC & CẨM NANG B2B (Blog Showcase) */}
-          <TrustSection />
+          <BlogSection />
         </div>
       </div>
 

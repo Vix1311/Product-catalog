@@ -101,7 +101,7 @@ export default function AboutSection() {
                     />
                   ) : item.icon ? (
                     <item.icon
-                      className="w-16 h-16 text-[#ECA921] group-hover:scale-110 transition-transform duration-300"
+                      className="w-16 h-16 text-[#2E8B57] group-hover:scale-110 transition-transform duration-300"
                       stroke={1.5}
                     />
                   ) : null}
