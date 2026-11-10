@@ -30,7 +30,7 @@ export default function AboutSection() {
       title: "Hợp tác phát triển",
       desc: "Luôn sẵn sàng hợp tác và chia sẻ kinh nghiệm với mọi đối tác trong và ngoài nước.",
       imageUrl:
-        "https://res-console.cloudinary.com/lnlh7orn/thumbnails/transform/v1/image/upload/Y19maWxsLGhfMjAwLHdfMjAw/v1/R2VtaW5pX0dlbmVyYXRlZF9JbWFnZV9jNHN5eHhjNHN5eHhjNHN5/template_primary",
+        "https://res.cloudinary.com/lnlh7orn/image/upload/f_auto/q_auto/Gemini_Generated_Image_c4syxxc4syxxc4sy.png",
     },
     {
       id: 3,
