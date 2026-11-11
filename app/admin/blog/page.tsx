@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
   IconFileUpload,
@@ -74,6 +74,25 @@ export default function AdminBlogPage() {
 
   const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
 
+  // 1. THÊM REF ĐỂ TRỎ VÀO ĐẦU DANH SÁCH BÀI VIẾT VÀ KIỂM TRA RENDER LẦN ĐẦU
+  const listTopRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);
+
+  // 2. EFFECT: CUỘN LÊN ĐẦU KHI CHUYỂN TRANG
+  useEffect(() => {
+    // Bỏ qua lần render đầu tiên để không bị cuộn khi vừa vào trang
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (listTopRef.current) {
+      // Tính toán vị trí và cuộn mượt mà lên đầu (trừ đi 100px cho header/thanh điều hướng)
+      const top =
+        listTopRef.current.getBoundingClientRect().top + window.scrollY - 100;
+      window.scrollTo({ top, behavior: "smooth" });
+    }
+  }, [currentPage]);
+
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem("accessToken");
@@ -135,24 +154,19 @@ export default function AdminBlogPage() {
     fetchAllPosts();
   }, []);
 
-  // Tự động đưa về trang 1 khi người dùng thay đổi điều kiện tìm kiếm / lọc
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, filterCategory, filterTag]);
 
-  // Lọc danh sách bài viết theo Search, Chuyên mục và Từ khóa (Tags)
   const filteredPosts = useMemo(() => {
     return posts.filter((post) => {
-      // 1. Lọc theo tiêu đề (search)
       const matchesSearch = post.title
         ?.toLowerCase()
         .includes(searchQuery.trim().toLowerCase());
 
-      // 2. Lọc theo chuyên mục
       const matchesCategory =
         filterCategory === "ALL" || post.category === filterCategory;
 
-      // 3. Lọc theo từ khóa (tags)
       let postTagsString = "";
       if (Array.isArray(post.tags)) {
         postTagsString = post.tags.join(", ").toLowerCase();
@@ -168,13 +182,11 @@ export default function AdminBlogPage() {
     });
   }, [posts, searchQuery, filterCategory, filterTag]);
 
-  // Tính toán phân trang (Tối đa 10 bài / trang)
   const totalPages = Math.max(
     1,
     Math.ceil(filteredPosts.length / ITEMS_PER_PAGE),
   );
 
-  // Đảm bảo currentPage không vượt quá totalPages sau khi xóa bài viết
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
@@ -281,7 +293,6 @@ export default function AdminBlogPage() {
     <div>
       <StickyHeader isLoggedIn={isLoggedIn} onLogout={handleLogout} />
       <div className="min-h-screen bg-[#FAF8F5] text-gray-800">
-        {/* BANNER QUẢN TRỊ BLOG */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6">
           <div
             className="w-full rounded-[28px] py-10 px-6 sm:px-12 shadow-2xl border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -314,10 +325,9 @@ export default function AdminBlogPage() {
           </div>
         </div>
 
-        {/* NỘI DUNG CHÍNH */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 pb-20">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* CỘT TRÁI (5 CỘT): FORM UPLOAD FILE WORD */}
+            {/* --- CỘT TRÁI (UPLOAD FILE) GIỮ NGUYÊN --- */}
             <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-amber-200/80 overflow-hidden">
               <div className="bg-gray-900 text-white px-6 py-4 border-b border-amber-500/30 flex items-center gap-2.5">
                 <IconFileUpload className="w-5 h-5 text-[#ECA921]" />
@@ -330,7 +340,6 @@ export default function AdminBlogPage() {
                 onSubmit={handleCreatePost}
                 className="p-6 space-y-4 text-xs"
               >
-                {/* 📌 NOTE QUAN TRỌNG: HƯỚNG DẪN FORMAT WORD KHỚP TRANG CHI TIẾT */}
                 <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 space-y-2 text-gray-700 shadow-xs">
                   <div className="font-black text-[#8C5210] flex items-center gap-1.5 text-sm">
                     <IconBulb className="w-4 h-4 text-[#ECA921]" />
@@ -360,13 +369,11 @@ export default function AdminBlogPage() {
                       thị video trong Word, gõ trên 1 dòng riêng bắt đầu bằng{" "}
                       <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">
                         VIDEO: https://link-video...
-                      </code>{" "}
-                      (hỗ trợ link Cloudinary .mp4 hoặc link YouTube).
+                      </code>
                     </li>
                     <li>
                       <strong>Chèn Hình ảnh xen kẽ:</strong> Dán (Paste) trực
-                      tiếp ảnh vào đúng vị trí trong file Word (hệ thống tự đẩy
-                      lên Cloudinary), hoặc gõ dòng{" "}
+                      tiếp ảnh vào đúng vị trí trong file Word hoặc gõ dòng{" "}
                       <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">
                         IMAGE: https://link-anh...
                       </code>
@@ -379,7 +386,6 @@ export default function AdminBlogPage() {
                   </ul>
                 </div>
 
-                {/* 1. Chọn File Word */}
                 <div>
                   <label className="block font-bold text-gray-800 mb-1.5">
                     1. File nội dung Word (.docx){" "}
@@ -405,7 +411,6 @@ export default function AdminBlogPage() {
                   </label>
                 </div>
 
-                {/* 2. Chọn Ảnh Bìa */}
                 <div>
                   <label className="block font-bold text-gray-800 mb-1.5">
                     2. Ảnh bìa bài viết (Tự động tải lên Cloudinary)
@@ -441,7 +446,6 @@ export default function AdminBlogPage() {
                   </label>
                 </div>
 
-                {/* 3. Tiêu đề tùy chọn */}
                 <div>
                   <label className="block font-bold text-gray-800 mb-1">
                     3. Tiêu đề bài viết (Nếu bỏ trống sẽ tự lấy tên file Word)
@@ -455,7 +459,6 @@ export default function AdminBlogPage() {
                   />
                 </div>
 
-                {/* 4. Chuyên mục & Tags */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-gray-800 mb-1">
@@ -488,7 +491,6 @@ export default function AdminBlogPage() {
                   </div>
                 </div>
 
-                {/* 5. Đánh dấu nổi bật */}
                 <label className="flex items-center gap-2.5 pt-1 cursor-pointer font-bold text-gray-800">
                   <input
                     type="checkbox"
@@ -509,7 +511,7 @@ export default function AdminBlogPage() {
                   {submitting ? (
                     <>
                       <IconLoader2 className="w-4 h-4 animate-spin" /> Đang Xử
-                      Lý File Word & Đẩy Lên Cloud...
+                      Lý...
                     </>
                   ) : (
                     <>
@@ -521,10 +523,13 @@ export default function AdminBlogPage() {
               </form>
             </div>
 
-            {/* CỘT PHẢI (7 CỘT): DANH SÁCH BÀI VIẾT HIỆN CÓ */}
+            {/* --- CỘT PHẢI (DANH SÁCH BÀI VIẾT) --- */}
             <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-amber-100 overflow-hidden">
-              {/* HEADER DANH SÁCH & NÚT XÓA BỘ LỌC + NÚT ICON MŨI TÊN VÒNG TRÒN */}
-              <div className="px-6 py-4 bg-amber-50/60 border-b border-amber-100 flex items-center justify-between gap-2">
+              {/* 3. ĐẶT REF Ở ĐÂY ĐỂ ĐÍCH TỚI KHI CUỘN LÊN ĐẦU DANH SÁCH */}
+              <div
+                ref={listTopRef}
+                className="px-6 py-4 bg-amber-50/60 border-b border-amber-100 flex items-center justify-between gap-2"
+              >
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h2 className="text-base font-black text-gray-900">
                     Danh Sách Bài Viết Đã Đăng ({filteredPosts.length}
@@ -545,7 +550,6 @@ export default function AdminBlogPage() {
                   onClick={fetchAllPosts}
                   disabled={loadingPosts}
                   title="Làm mới danh sách"
-                  aria-label="Làm mới danh sách"
                   className="p-2 rounded-xl bg-white hover:bg-amber-100/80 text-[#B8731B] border border-amber-200/80 shadow-2xs transition-all cursor-pointer active:scale-95 disabled:opacity-50 shrink-0"
                 >
                   <IconRefresh
@@ -554,22 +558,19 @@ export default function AdminBlogPage() {
                 </button>
               </div>
 
-              {/* THANH TÌM KIẾM & BỘ LỌC (SEARCH, CHUYÊN MỤC, TỪ KHÓA) */}
               <div className="p-4 sm:px-6 bg-gray-50/60 border-b border-gray-100 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-                  {/* Ô tìm kiếm tiêu đề */}
                   <div className="sm:col-span-5 relative">
                     <IconSearch className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Tìm theo tiêu đề bài viết..."
+                      placeholder="Tìm theo tiêu đề..."
                       className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 bg-white focus:outline-none focus:border-[#ECA921]"
                     />
                   </div>
 
-                  {/* Lọc theo chuyên mục */}
                   <div className="sm:col-span-4 relative">
                     <IconFilter className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <select
@@ -586,7 +587,6 @@ export default function AdminBlogPage() {
                     </select>
                   </div>
 
-                  {/* Lọc theo từ khóa (Tags) */}
                   <div className="sm:col-span-3 relative">
                     <IconTag className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
@@ -600,8 +600,10 @@ export default function AdminBlogPage() {
                 </div>
               </div>
 
-              {/* DANH SÁCH BÀI VIẾT */}
-              <div className="divide-y divide-gray-100">
+              {/* 4. THÊM MIN-H ĐỂ THANH PHÂN TRANG LUÔN GIỮ NGUYÊN VỊ TRÍ, KHÔNG BỊ RÚT LÊN (ĐI THEO) KHI ÍT BÀI */}
+              <div
+                className={`divide-y divide-gray-100 ${!loadingPosts && filteredPosts.length > 0 ? "min-h-[680px]" : ""}`}
+              >
                 {loadingPosts ? (
                   <div className="p-12 text-center text-xs text-gray-400">
                     Đang tải danh sách bài viết...
@@ -674,7 +676,6 @@ export default function AdminBlogPage() {
                                     key={idx}
                                     type="button"
                                     onClick={() => setFilterTag(t)}
-                                    title={`Lọc theo từ khóa: ${t}`}
                                     className="text-[10px] text-gray-500 bg-gray-100 hover:bg-amber-100 hover:text-[#8C5210] px-1.5 py-0.5 rounded transition-colors cursor-pointer"
                                   >
                                     #{t}
@@ -689,7 +690,6 @@ export default function AdminBlogPage() {
                           <Link
                             href={`/blog/${item.slug || item.id}`}
                             className="p-2 rounded-xl bg-gray-100 hover:bg-amber-100 text-gray-700 transition-colors"
-                            title="Xem bài viết"
                           >
                             <IconEye className="w-4 h-4" />
                           </Link>
@@ -699,7 +699,6 @@ export default function AdminBlogPage() {
                               handleDeletePost(item.id, item.title)
                             }
                             className="cursor-pointer p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
-                            title="Xóa bài viết"
                           >
                             <IconTrash className="w-4 h-4" />
                           </button>
@@ -710,7 +709,7 @@ export default function AdminBlogPage() {
                 )}
               </div>
 
-              {/* PHÂN TRANG (TỐI ĐA 10 BLOG / TRANG) */}
+              {/* PHÂN TRANG */}
               {!loadingPosts && filteredPosts.length > ITEMS_PER_PAGE && (
                 <div className="px-6 py-4 bg-amber-50/40 border-t border-amber-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                   <span className="text-gray-500">
@@ -740,7 +739,6 @@ export default function AdminBlogPage() {
                       }
                       disabled={currentPage === 1}
                       className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-amber-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
-                      aria-label="Trang trước"
                     >
                       <IconChevronLeft className="w-4 h-4 text-gray-700" />
                     </button>
@@ -769,7 +767,6 @@ export default function AdminBlogPage() {
                       }
                       disabled={currentPage === totalPages}
                       className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-amber-50 disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
-                      aria-label="Trang sau"
                     >
                       <IconChevronRight className="w-4 h-4 text-gray-700" />
                     </button>
