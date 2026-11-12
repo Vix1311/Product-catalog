@@ -49,8 +49,7 @@ function HomeContent() {
         <StickyHeader isLoggedIn={isLoggedIn} onLogout={handleLogout} />
         {/* 1. Hero Banner TRÀN MÀN HÌNH */}
         <HeroBanner />
-        {/* 2. Khối 4 Ô BANNERS DANH MỤC TRÀN MÀN HÌNH */}
-        <CategoryBanners />
+
         {/* VÙNG NỘI DUNG TRUNG TÂM: Phân tách rõ ràng từng Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
           {/* KHỐI CTA TRA CỨU CATALOG (Dạng Đảo Nội Dung Nổi Bật) */}
