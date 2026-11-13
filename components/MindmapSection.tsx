@@ -31,7 +31,7 @@ export default function MindmapSection() {
       title: "Thịt Nhập Khẩu",
       subtitle: "Bò, Heo, Cừu",
       imageUrl:
-        "https://images.unsplash.com/photo-1603048588665-791ca8aea617?q=80&w=400",
+        "https://duylinhfood.com/wp-content/uploads/2019/09/banner_dmsp_3-800x308.jpg",
       link: "/catalog?group=thit-nhap-khau",
       posX: 25,
       posY: 22,
@@ -42,7 +42,7 @@ export default function MindmapSection() {
       title: "Surimi & Chả Cá",
       subtitle: "Thanh cua, Viên lẩu",
       imageUrl:
-        "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400",
+        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcToXIjLt9-wKB_Ix_EJKd_felX6Ywk9JwTFfrIhxfpfOWw5k2y0hlDolQPi&s=10",
       link: "/catalog?group=surimi",
       posX: 50,
       posY: 15,
@@ -53,7 +53,7 @@ export default function MindmapSection() {
       title: "Sauce / Nước Sốt",
       subtitle: "Sốt lẩu, Sốt BBQ",
       imageUrl:
-        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=400",
+        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSv04751u0sQ1mmIroedSmpQLQkwC5nAjxMIjvgUnEBBVefryWWVN21RN4W&s=10",
       link: "/catalog?group=sauce",
       posX: 75,
       posY: 22,
@@ -64,7 +64,7 @@ export default function MindmapSection() {
       title: "Mayonnaise",
       subtitle: "Sốt béo, Sốt salad",
       imageUrl:
-        "https://images.unsplash.com/photo-1589985107050-d79e5781a70c?q=80&w=400",
+        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSlnIVTjJhWXpu-ZwOv4vS74wdtE5tB5nhFf_logfeDEjE_3wm5KP2gw7U&s=10",
       link: "/catalog?group=mayonnaise",
       posX: 85,
       posY: 50,
@@ -86,7 +86,7 @@ export default function MindmapSection() {
       title: "Chà Bông Heo / Gà",
       subtitle: "Ruốc xù, Ruốc cay",
       imageUrl:
-        "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?q=80&w=400",
+        "https://conetfood.com/datafiles/02-10-2018/16993267249929_cha-bong-gia-heo.jpg",
       link: "/catalog?group=cha-bong",
       posX: 50,
       posY: 85,
@@ -97,7 +97,7 @@ export default function MindmapSection() {
       title: "RTE / RTC",
       subtitle: "Thịt / Cá ăn liền",
       imageUrl:
-        "https://images.unsplash.com/photo-1541832676-9b763b0239ab?q=80&w=400",
+        "https://media.licdn.com/dms/image/v2/C4D12AQHJWPlVbPy3Gg/article-cover_image-shrink_600_2000/article-cover_image-shrink_600_2000/0/1520082814579?e=2147483647&v=beta&t=1pIswftPYiWEzOjIK3IV8zM_SSrpg1y2ArW9ddHTzfM",
       link: "/catalog?group=rte",
       posX: 25,
       posY: 78,
