@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
@@ -14,6 +14,7 @@ import {
   IconBulb,
   IconBook,
   IconLoader2,
+  IconSparkles,
 } from "@tabler/icons-react";
 import Footer from "@/components/Footer";
 import StickyHeader from "@/components/StickyHeader";
@@ -97,7 +98,6 @@ function extractTextFromChildren(children: React.ReactNode): string {
   return "";
 }
 
-// Helper chuyển đổi link video (YouTube, Google Drive, hoặc MP4/Cloudinary) thành mã nhúng HTML
 function buildVideoEmbedHtml(rawUrl: string): string {
   const url = rawUrl.trim();
   const ytMatch = url.match(
@@ -117,6 +117,85 @@ function buildVideoEmbedHtml(rawUrl: string): string {
   return `\n\n<video controls preload="metadata" src="${url}"></video>\n\n`;
 }
 
+// 🎯 COMPONENT CON: WIDGET BÀI VIẾT NGẪU NHIÊN
+function RandomBlogWidget({ currentPostId }: { currentPostId: string }) {
+  const [randomPosts, setRandomPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRandomPosts = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/posts`);
+        if (res.ok) {
+          const data = await res.json();
+          const rawPosts = Array.isArray(data) ? data : data.posts || [];
+          
+          // Lọc bỏ bài viết đang xem
+          const filtered = rawPosts.filter((p: any) => p.id !== currentPostId);
+          
+          // Đảo mảng ngẫu nhiên (Fisher-Yates shuffle)
+          for (let i = filtered.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+          }
+          
+          // Lấy 3 bài đầu tiên sau khi đảo
+          setRandomPosts(filtered.slice(0, 3));
+        }
+      } catch (error) {
+        console.error("Lỗi fetch random posts:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRandomPosts();
+  }, [currentPostId]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl p-6 border border-amber-200/60 shadow-sm mt-6 text-center">
+        <IconLoader2 className="w-5 h-5 text-amber-500 animate-spin mx-auto" />
+      </div>
+    );
+  }
+
+  if (randomPosts.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-2xl p-6 border border-amber-200/60 shadow-sm mt-6">
+      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-900 pb-3 border-b border-gray-100 mb-4">
+        <IconSparkles className="w-4 h-4 text-[#ECA921]" /> Có thể bạn quan tâm
+      </div>
+      <div className="space-y-4">
+        {randomPosts.map((post) => (
+          <Link
+            key={post.id}
+            href={`/blog/${post.slug || post.id}`}
+            className="flex items-start gap-3 group"
+          >
+            <div className="w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-gray-100 border border-gray-100">
+              <img
+                src={post.imageUrl || "https://placehold.co/150x150?text=No+Image"}
+                alt={post.title}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              />
+            </div>
+            <div className="flex flex-col space-y-1">
+              <h4 className="text-xs sm:text-[13px] font-extrabold text-gray-800 line-clamp-2 leading-snug group-hover:text-[#B8731B] transition-colors">
+                {post.title}
+              </h4>
+              <span className="text-[10px] text-gray-400 font-medium">
+                {post.createdAt ? new Date(post.createdAt).toLocaleDateString("vi-VN") : "Đang cập nhật"}
+              </span>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function BlogDetailPage() {
   const params = useParams();
   const postId = typeof params?.id === "string" ? params.id : "1";
@@ -124,9 +203,6 @@ export default function BlogDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [post, setPost] = useState<BlogPostDetail>(
     BLOG_DETAILS[postId] || { ...BLOG_DETAILS["1"], id: postId },
-  );
-  const [relatedPosts, setRelatedPosts] = useState<BlogPostDetail[]>(
-    Object.values(BLOG_DETAILS).filter((item) => item.id !== postId),
   );
 
   const [copiedQuote, setCopiedQuote] = useState(false);
@@ -144,7 +220,6 @@ export default function BlogDetailPage() {
     return () => window.removeEventListener("storage", checkAuth);
   }, []);
 
-  // 🎯 GỌI API LẤY CHI TIẾT BÀI VIẾT THEO SLUG / ID
   useEffect(() => {
     const fetchPostFromApi = async () => {
       setIsLoading(true);
@@ -154,12 +229,6 @@ export default function BlogDetailPage() {
           const data = await res.json();
           if (data?.post) {
             setPost(data.post);
-            if (
-              Array.isArray(data.relatedPosts) &&
-              data.relatedPosts.length > 0
-            ) {
-              setRelatedPosts(data.relatedPosts);
-            }
           }
         }
       } catch (error) {
@@ -223,7 +292,6 @@ export default function BlogDetailPage() {
       const trimmed = line.trim();
       const plainCheck = trimmed.replace(/^[*_]+|[*_]+$/g, "").trim();
 
-      // 1. Bóc tách dòng "Tóm tắt:" hoặc "Điểm chính:"
       if (/^(tóm tắt|điểm chính)\s*:/i.test(plainCheck)) {
         const cleanedPoint = plainCheck.replace(
           /^(tóm tắt|điểm chính)\s*:\s*/i,
@@ -234,9 +302,7 @@ export default function BlogDetailPage() {
           .map((s) => s.trim())
           .filter(Boolean)
           .forEach((item) => extractedTakeaways.push(item));
-      }
-      // 2. Nhận diện dòng bắt đầu bằng "VIDEO:" để hiển thị đúng vị trí trong bài
-      else if (/^video\s*:/i.test(plainCheck)) {
+      } else if (/^video\s*:/i.test(plainCheck)) {
         const urlPart = plainCheck
           .replace(/^video\s*:\s*/i, "")
           .replace(/^[*_]+|[*_]+$/g, "")
@@ -254,9 +320,7 @@ export default function BlogDetailPage() {
         } else {
           remainingLines.push(line);
         }
-      }
-      // 3. Nhận diện dòng bắt đầu bằng "IMAGE:" hoặc "HÌNH ẢNH:" (nếu chèn ảnh bằng link)
-      else if (/^(image|hình ảnh|hinh anh|ảnh)\s*:/i.test(plainCheck)) {
+      } else if (/^(image|hình ảnh|hinh anh|ảnh)\s*:/i.test(plainCheck)) {
         const urlPart = plainCheck
           .replace(/^(image|hình ảnh|hinh anh|ảnh)\s*:\s*/i, "")
           .replace(/^[*_]+|[*_]+$/g, "")
@@ -312,7 +376,6 @@ export default function BlogDetailPage() {
     },
   );
 
-  // Hiển thị trạng thái Loading
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center">
@@ -324,7 +387,6 @@ export default function BlogDetailPage() {
     );
   }
 
-  // Hàm chuyển tiêu đề thành ID chuẩn (VD: "1. Tại sao..." -> "muc-1-tai-sao")
   const generateHeadingId = (text: string) => {
     return (
       "muc-" +
@@ -418,6 +480,8 @@ export default function BlogDetailPage() {
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 pb-20">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            {/* CỘT TRÁI: BÀI VIẾT CHÍNH */}
             <article className="lg:col-span-8 bg-white rounded-3xl shadow-sm border border-amber-100 overflow-hidden">
               {post.imageUrl && (
                 <div className="h-64 sm:h-96 w-full overflow-hidden bg-gray-900 border-b border-amber-100">
@@ -500,7 +564,6 @@ export default function BlogDetailPage() {
                             {children}
                           </li>
                         ),
-                        // Hiển thị Hình ảnh đúng vị trí trong file Word (dùng span block để không lỗi khi nằm trong <p>)
                         img: ({ src, alt }) => (
                           <span className="block my-6 rounded-2xl overflow-hidden border border-amber-200 shadow-md bg-gray-50">
                             <img
@@ -511,7 +574,6 @@ export default function BlogDetailPage() {
                             />
                           </span>
                         ),
-                        // Hiển thị Video trực tiếp (.mp4 / Cloudinary) đúng vị trí dòng VIDEO:
                         video: ({ src, ...props }) => (
                           <div className="my-6 rounded-2xl overflow-hidden border border-amber-200 shadow-md bg-gray-950">
                             <video
@@ -524,7 +586,6 @@ export default function BlogDetailPage() {
                             />
                           </div>
                         ),
-                        // Hiển thị Video nhúng (YouTube / Google Drive) đúng vị trí dòng VIDEO:
                         iframe: ({ src, title, ...props }) => (
                           <div className="my-6 rounded-2xl overflow-hidden border border-amber-200 shadow-md bg-gray-950 aspect-video w-full">
                             <iframe
@@ -541,7 +602,6 @@ export default function BlogDetailPage() {
                           const rawText =
                             extractTextFromChildren(children).trim();
 
-                          // Hộp Mẹo / Lưu ý
                           if (
                             /^(mẹo|mẹo nhỏ|mẹo từ bếp trưởng|lưu ý|lưu ý quan trọng)\s*:/i.test(
                               rawText,
@@ -629,7 +689,8 @@ export default function BlogDetailPage() {
               </div>
             </article>
 
-            <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-28">
+            {/* CỘT PHẢI: MỤC LỤC & RANDOM BLOGS */}
+            <aside className="lg:col-span-4 lg:sticky lg:top-28">
               {tocItems.length > 0 && (
                 <div className="bg-white rounded-2xl p-6 border border-amber-200/60 shadow-sm">
                   <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-900 pb-3 border-b border-gray-100">
@@ -666,6 +727,10 @@ export default function BlogDetailPage() {
                   </ul>
                 </div>
               )}
+
+              {/* 🚀 COMPONENT GỢI Ý BÀI VIẾT NẰM Ở ĐÂY */}
+              <RandomBlogWidget currentPostId={post.id} />
+
             </aside>
           </div>
         </main>
