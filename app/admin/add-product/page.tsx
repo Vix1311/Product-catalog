@@ -3,20 +3,19 @@
 import React, { useMemo, useRef, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   IconCheck,
-  IconX,
   IconPhoto,
   IconSearch,
-  IconBulb,
   IconBox,
-  IconSparkles,
-  IconAward,
   IconArrowLeft,
   IconDeviceFloppy,
   IconLoader2,
   IconInfoCircle,
-  IconExchange,
+  IconFileSpreadsheet,
 } from "@tabler/icons-react";
 import Footer from "@/components/Footer";
 import StickyHeader from "@/components/StickyHeader";
@@ -25,29 +24,100 @@ import NotFoundPage from "@/app/not-found";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
-type ProductInput = {
-  id?: string;
-  name: string;
-  englishName: string;
-  category: string;
+// ============================================================================
+// 1. ZOD SCHEMA: ĐỊNH NGHĨA VÀ VALIDATION DỮ LIỆU
+// ============================================================================
+const productSchema = z
+  .object({
+    formMode: z.enum(["b2b", "rtc"]),
+    name: z.string().min(1, "Tên sản phẩm không được để trống"),
+    englishName: z.string().optional(),
+    category: z.string().min(1, "Danh mục không được để trống"),
 
-  // --- Các trường B2B ---
-  suitableDishes?: string;
-  characteristics?: string;
-  productSpec?: string;
-  marketPopularity?: string;
-  suitableChannels?: string;
+    // Các trường B2B
+    productSpec: z.string().optional(),
+    marketPopularity: z.string().optional(),
+    suitableChannels: z.string().optional(),
+    suitableDishes: z.string().optional(),
+    characteristics: z.string().optional(),
+    variants: z.array(z.any()).optional(),
 
-  // --- Các trường RTC ---
-  description?: string;
-  ingredients?: string;
-  usageInstructions?: string;
-  storageInstructions?: string;
-  warnings?: string;
-  highlights?: string;
+    // Các trường RTC
+    description: z.string().optional(),
+    ingredients: z.string().optional(),
+    usageInstructions: z.string().optional(),
+    storageInstructions: z.string().optional(),
+    warnings: z.string().optional(),
+    highlights: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    // Validation chéo dựa trên formMode
+    if (data.formMode === "b2b") {
+      if (!data.productSpec?.trim())
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["productSpec"],
+          message: "Bắt buộc",
+        });
+      if (!data.marketPopularity?.trim())
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["marketPopularity"],
+          message: "Bắt buộc",
+        });
+      if (!data.suitableChannels?.trim())
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["suitableChannels"],
+          message: "Bắt buộc",
+        });
+      if (!data.suitableDishes?.trim())
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["suitableDishes"],
+          message: "Bắt buộc",
+        });
+      if (!data.characteristics?.trim())
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["characteristics"],
+          message: "Bắt buộc",
+        });
+      if (!data.variants || data.variants.length === 0)
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["variants"],
+          message: "Vui lòng chọn ít nhất 1 thương hiệu B2B!",
+        });
+    } else {
+      if (!data.description?.trim())
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["description"],
+          message: "Bắt buộc",
+        });
+      if (!data.ingredients?.trim())
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["ingredients"],
+          message: "Bắt buộc",
+        });
+      if (!data.usageInstructions?.trim())
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["usageInstructions"],
+          message: "Bắt buộc",
+        });
+      if (!data.storageInstructions?.trim())
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["storageInstructions"],
+          message: "Bắt buộc",
+        });
+    }
+  });
 
-  imageUrl: string | null;
-};
+type ProductFormValues = z.infer<typeof productSchema>;
 
 const MOCK_BRANDS = [
   { brandId: "b1", name: "A213PK", origin: "Đức" },
@@ -63,27 +133,43 @@ const capitalizeFirst = (text: string) => {
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
+// ============================================================================
+// 2. COMPONENT CHÍNH
+// ============================================================================
 export default function AddProductPage() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
 
-  // Chế độ nhập liệu: 'b2b' hoặc 'rtc'
-  const [formMode, setFormMode] = useState<"b2b" | "rtc">("b2b");
-
-  const [product, setProduct] = useState<Partial<ProductInput>>({});
-  const [errors, setErrors] = useState<Record<string, boolean>>({});
-
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const excelInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploadingExcel, setIsUploadingExcel] = useState<boolean>(false);
+
   const [searchBrand, setSearchBrand] = useState("");
-  const [selectedVariants, setSelectedVariants] = useState<any[]>([]);
   const [suggestedBrands, setSuggestedBrands] = useState<typeof MOCK_BRANDS>(
     [],
   );
+
+  // Khởi tạo React Hook Form kết hợp Zod
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<ProductFormValues>({
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      formMode: "b2b",
+      variants: [],
+    },
+  });
+
+  const formMode = watch("formMode");
+  const selectedVariants = watch("variants") || [];
 
   const handleLogout = async () => {
     try {
@@ -131,14 +217,18 @@ export default function AddProductPage() {
   const displayBrands = searchBrand ? filteredBrands : suggestedBrands;
 
   const toggleBrand = (brand: (typeof MOCK_BRANDS)[0]) => {
-    const isExist = selectedVariants.find((v) => v.brandId === brand.brandId);
+    const isExist = selectedVariants.find(
+      (v: any) => v.brandId === brand.brandId,
+    );
+    let newVariants = [];
     if (isExist) {
-      setSelectedVariants(
-        selectedVariants.filter((v) => v.brandId !== brand.brandId),
+      newVariants = selectedVariants.filter(
+        (v: any) => v.brandId !== brand.brandId,
       );
     } else {
-      setSelectedVariants([...selectedVariants, { ...brand }]);
+      newVariants = [...selectedVariants, { ...brand }];
     }
+    setValue("variants", newVariants, { shouldValidate: true });
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,61 +237,48 @@ export default function AddProductPage() {
       setSelectedFile(file);
       const imageUrl = URL.createObjectURL(file);
       setPreviewImage(imageUrl);
-      setProduct({ ...product, imageUrl });
     }
   };
 
-  const handleFinalSubmit = async () => {
-    const newErrors: Record<string, boolean> = {};
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    // Validate chung
-    if (!product.name || String(product.name).trim() === "")
-      newErrors.name = true;
-    if (!product.category || String(product.category).trim() === "")
-      newErrors.category = true;
+    const formDataExcel = new FormData();
+    formDataExcel.append("file", file);
 
-    // Validate theo Mode
-    if (formMode === "b2b") {
-      const b2bFields: (keyof ProductInput)[] = [
-        "productSpec",
-        "marketPopularity",
-        "suitableChannels",
-        "suitableDishes",
-        "characteristics",
-      ];
-      b2bFields.forEach((field) => {
-        if (!product[field] || String(product[field]).trim() === "") {
-          newErrors[field] = true;
-        }
+    try {
+      setIsUploadingExcel(true);
+      const token = localStorage.getItem("accessToken");
+      const authHeaders: HeadersInit = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
+
+      const response = await fetch(`${API_BASE}/api/products/import-excel`, {
+        method: "POST",
+        headers: authHeaders,
+        body: formDataExcel,
       });
-    } else {
-      const rtcFields: (keyof ProductInput)[] = [
-        "description",
-        "ingredients",
-        "usageInstructions",
-        "storageInstructions",
-      ];
-      rtcFields.forEach((field) => {
-        if (!product[field] || String(product[field]).trim() === "") {
-          newErrors[field] = true;
-        }
-      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.message || "Lỗi khi import file Excel");
+      }
+
+      toast.success(
+        `Import Excel thành công! Tổng số: ${result.successCount ?? "Tất cả"}/${result.total ?? ""} dòng.`,
+      );
+      router.push("/admin");
+    } catch (err: any) {
+      toast.error(`Lỗi Import Excel: ${err.message}`);
+    } finally {
+      setIsUploadingExcel(false);
+      if (excelInputRef.current) excelInputRef.current.value = "";
     }
+  };
 
-    setErrors(newErrors);
-
-    if (Object.keys(newErrors).length > 0) {
-      toast.error("Vui lòng không để trống các trường bắt buộc có dấu (*)");
-      return;
-    }
-
-    if (selectedVariants.length === 0 && formMode === "b2b") {
-      toast.error("Vui lòng chọn ít nhất 1 thương hiệu B2B!");
-      return;
-    }
-
-    setSubmitting(true);
-
+  // Hàm này CHỈ CHẠY khi Form đã pass toàn bộ Zod validation
+  const onSubmit = async (data: ProductFormValues) => {
     try {
       const token = localStorage.getItem("accessToken");
       const authHeaders: HeadersInit = token
@@ -215,8 +292,9 @@ export default function AddProductPage() {
           ...authHeaders,
         },
         body: JSON.stringify({
-          ...product,
-          variants: selectedVariants,
+          ...data,
+          // Đảm bảo lọc sạch dữ liệu dựa vào mode trước khi gửi đi
+          variants: data.formMode === "b2b" ? data.variants : [],
         }),
       });
 
@@ -252,14 +330,21 @@ export default function AddProductPage() {
     } catch (error: any) {
       console.error("Lỗi khi tạo sản phẩm:", error);
       toast.error(`Có lỗi xảy ra: ${error.message}`);
-    } finally {
-      setSubmitting(false);
     }
   };
 
-  const getInputClass = (hasError?: boolean) =>
+  // Hàm xử lý hiển thị lỗi Toast khi validation thất bại
+  const onInvalid = (formErrors: any) => {
+    if (formErrors.variants) {
+      toast.error(formErrors.variants.message);
+    } else {
+      toast.error("Vui lòng không để trống các trường bắt buộc có dấu (*)");
+    }
+  };
+
+  const getInputClass = (fieldName: keyof ProductFormValues) =>
     `w-full px-3.5 py-2.5 bg-amber-50/20 border rounded-xl text-xs sm:text-sm text-gray-900 focus:bg-white focus:outline-none transition-all ${
-      hasError
+      errors[fieldName]
         ? "border-red-500 bg-red-50/50 focus:ring-2 focus:ring-red-200"
         : "border-gray-200 focus:border-[#ECA921] focus:ring-2 focus:ring-[#ECA921]/20"
     }`;
@@ -294,22 +379,46 @@ export default function AddProductPage() {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
               <button
                 type="button"
-                disabled={submitting}
+                disabled={isSubmitting || isUploadingExcel}
                 onClick={() => router.push("/admin")}
                 className="cursor-pointer px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-amber-100 border border-amber-500/30 text-xs font-bold transition-colors flex items-center gap-2"
               >
                 <IconArrowLeft className="w-4 h-4" /> Hủy bỏ
               </button>
 
-              {/* NÚT CHUYỂN ĐỔI CHẾ ĐỘ FORM */}
+              <input
+                ref={excelInputRef}
+                type="file"
+                accept=".xlsx, .xls"
+                onChange={handleExcelUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                disabled={isUploadingExcel || isSubmitting}
+                onClick={() => excelInputRef.current?.click()}
+                className="cursor-pointer px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold text-xs shadow-lg transition-all flex items-center gap-2"
+              >
+                {isUploadingExcel ? (
+                  <IconLoader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <IconFileSpreadsheet className="w-4 h-4" />
+                )}
+                <span>
+                  {isUploadingExcel ? "Đang import..." : "Thêm bằng Excel"}
+                </span>
+              </button>
+
               <div className="flex bg-gray-900 border border-amber-500/30 rounded-xl p-1 shadow-lg">
                 <button
                   type="button"
-                  onClick={() => setFormMode("b2b")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                  onClick={() =>
+                    setValue("formMode", "b2b", { shouldValidate: true })
+                  }
+                  className={`cursor-pointer px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
                     formMode === "b2b"
                       ? "bg-[#ECA921] text-gray-950"
                       : "text-amber-100 hover:text-white"
@@ -319,8 +428,10 @@ export default function AddProductPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormMode("rtc")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                  onClick={() =>
+                    setValue("formMode", "rtc", { shouldValidate: true })
+                  }
+                  className={`cursor-pointer px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
                     formMode === "rtc"
                       ? "bg-emerald-500 text-gray-950"
                       : "text-amber-100 hover:text-white"
@@ -333,12 +444,15 @@ export default function AddProductPage() {
           </div>
         </div>
 
-        {/* NỘI DUNG CHÍNH */}
+        {/* NỘI DUNG CHÍNH - BAO BỌC BỞI THẺ <form> ĐỂ GỌI REACT HOOK FORM */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 pb-20">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <form
+            onSubmit={handleSubmit(onSubmit, onInvalid)}
+            className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start"
+          >
             {/* CỘT TRÁI (8/12) */}
             <div className="lg:col-span-8 space-y-6">
-              {/* Card 1: Thông tin cơ bản (Dùng chung) */}
+              {/* Card 1: Thông tin cơ bản */}
               <div className="bg-white rounded-3xl shadow-sm border border-amber-200/70 overflow-hidden">
                 <div className="bg-gray-900 text-white px-6 py-4 border-b border-amber-500/30 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -360,14 +474,13 @@ export default function AddProductPage() {
                     </label>
                     <input
                       type="text"
-                      className={getInputClass(errors.name)}
-                      value={product.name || ""}
-                      onChange={(e) =>
-                        setProduct({
-                          ...product,
-                          name: capitalizeFirst(e.target.value),
-                        })
-                      }
+                      className={getInputClass("name")}
+                      {...register("name", {
+                        onChange: (e) =>
+                          setValue("name", capitalizeFirst(e.target.value), {
+                            shouldValidate: true,
+                          }),
+                      })}
                     />
                   </div>
 
@@ -377,14 +490,15 @@ export default function AddProductPage() {
                     </label>
                     <input
                       type="text"
-                      className={getInputClass(false)}
-                      value={product.englishName || ""}
-                      onChange={(e) =>
-                        setProduct({
-                          ...product,
-                          englishName: capitalizeFirst(e.target.value),
-                        })
-                      }
+                      className={getInputClass("englishName")}
+                      {...register("englishName", {
+                        onChange: (e) =>
+                          setValue(
+                            "englishName",
+                            capitalizeFirst(e.target.value),
+                            { shouldValidate: true },
+                          ),
+                      })}
                     />
                   </div>
 
@@ -394,23 +508,22 @@ export default function AddProductPage() {
                     </label>
                     <input
                       type="text"
-                      className={getInputClass(errors.category)}
-                      value={product.category || ""}
-                      onChange={(e) =>
-                        setProduct({
-                          ...product,
-                          category: capitalizeFirst(e.target.value),
-                        })
-                      }
+                      className={getInputClass("category")}
+                      {...register("category", {
+                        onChange: (e) =>
+                          setValue(
+                            "category",
+                            capitalizeFirst(e.target.value),
+                            { shouldValidate: true },
+                          ),
+                      })}
                     />
                   </div>
                 </div>
               </div>
 
-              {/* RENDER FORM DỰA VÀO MODE */}
               {formMode === "b2b" ? (
                 <>
-                  {/* Card 2 - B2B: Đặc tính chi tiết */}
                   <div className="bg-white rounded-3xl shadow-sm border border-amber-200/70 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
                     <div className="bg-gray-900 text-white px-6 py-4 border-b border-amber-500/30 flex items-center gap-2.5">
                       <span className="w-7 h-7 rounded-lg bg-[#ECA921] text-gray-950 font-black text-xs flex items-center justify-center">
@@ -428,14 +541,15 @@ export default function AddProductPage() {
                         </label>
                         <input
                           type="text"
-                          className={getInputClass(errors.productSpec)}
-                          value={product.productSpec || ""}
-                          onChange={(e) =>
-                            setProduct({
-                              ...product,
-                              productSpec: capitalizeFirst(e.target.value),
-                            })
-                          }
+                          className={getInputClass("productSpec")}
+                          {...register("productSpec", {
+                            onChange: (e) =>
+                              setValue(
+                                "productSpec",
+                                capitalizeFirst(e.target.value),
+                                { shouldValidate: true },
+                              ),
+                          })}
                         />
                       </div>
                       <div>
@@ -445,14 +559,15 @@ export default function AddProductPage() {
                         </label>
                         <input
                           type="text"
-                          className={getInputClass(errors.marketPopularity)}
-                          value={product.marketPopularity || ""}
-                          onChange={(e) =>
-                            setProduct({
-                              ...product,
-                              marketPopularity: capitalizeFirst(e.target.value),
-                            })
-                          }
+                          className={getInputClass("marketPopularity")}
+                          {...register("marketPopularity", {
+                            onChange: (e) =>
+                              setValue(
+                                "marketPopularity",
+                                capitalizeFirst(e.target.value),
+                                { shouldValidate: true },
+                              ),
+                          })}
                         />
                       </div>
                       <div className="md:col-span-2">
@@ -462,14 +577,15 @@ export default function AddProductPage() {
                         </label>
                         <input
                           type="text"
-                          className={getInputClass(errors.suitableChannels)}
-                          value={product.suitableChannels || ""}
-                          onChange={(e) =>
-                            setProduct({
-                              ...product,
-                              suitableChannels: capitalizeFirst(e.target.value),
-                            })
-                          }
+                          className={getInputClass("suitableChannels")}
+                          {...register("suitableChannels", {
+                            onChange: (e) =>
+                              setValue(
+                                "suitableChannels",
+                                capitalizeFirst(e.target.value),
+                                { shouldValidate: true },
+                              ),
+                          })}
                         />
                       </div>
                       <div className="md:col-span-2">
@@ -478,14 +594,15 @@ export default function AddProductPage() {
                         </label>
                         <input
                           type="text"
-                          className={getInputClass(errors.suitableDishes)}
-                          value={product.suitableDishes || ""}
-                          onChange={(e) =>
-                            setProduct({
-                              ...product,
-                              suitableDishes: capitalizeFirst(e.target.value),
-                            })
-                          }
+                          className={getInputClass("suitableDishes")}
+                          {...register("suitableDishes", {
+                            onChange: (e) =>
+                              setValue(
+                                "suitableDishes",
+                                capitalizeFirst(e.target.value),
+                                { shouldValidate: true },
+                              ),
+                          })}
                         />
                       </div>
                       <div className="md:col-span-2">
@@ -495,20 +612,20 @@ export default function AddProductPage() {
                         </label>
                         <textarea
                           rows={3}
-                          className={`${getInputClass(errors.characteristics)} resize-none`}
-                          value={product.characteristics || ""}
-                          onChange={(e) =>
-                            setProduct({
-                              ...product,
-                              characteristics: capitalizeFirst(e.target.value),
-                            })
-                          }
+                          className={`${getInputClass("characteristics")} resize-none`}
+                          {...register("characteristics", {
+                            onChange: (e) =>
+                              setValue(
+                                "characteristics",
+                                capitalizeFirst(e.target.value),
+                                { shouldValidate: true },
+                              ),
+                          })}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Card 3 - B2B: CHỌN BIẾN THỂ */}
                   <div className="bg-white rounded-3xl shadow-sm border border-amber-200/70 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
                     <div className="bg-gray-900 text-white px-6 py-4 border-b border-amber-500/30 flex items-center gap-2.5">
                       <span className="w-7 h-7 rounded-lg bg-[#ECA921] text-gray-950 font-black text-xs flex items-center justify-center">
@@ -519,7 +636,6 @@ export default function AddProductPage() {
                       </h3>
                     </div>
                     <div className="p-6 space-y-4">
-                      {/* Đoạn search brand giữ nguyên như file cũ */}
                       <div className="relative">
                         <IconSearch className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                         <input
@@ -530,11 +646,13 @@ export default function AddProductPage() {
                           onChange={(e) => setSearchBrand(e.target.value)}
                         />
                       </div>
-                      <div className="p-4 bg-amber-50/50 border border-amber-200/70 rounded-2xl min-h-[96px]">
+                      <div
+                        className={`p-4 bg-amber-50/50 border rounded-2xl min-h-[96px] ${errors.variants ? "border-red-500 bg-red-50/50" : "border-amber-200/70"}`}
+                      >
                         <div className="flex flex-wrap gap-2">
                           {displayBrands.map((brand) => {
                             const isSelected = selectedVariants.some(
-                              (v) => v.brandId === brand.brandId,
+                              (v: any) => v.brandId === brand.brandId,
                             );
                             return (
                               <button
@@ -574,9 +692,6 @@ export default function AddProductPage() {
                   </div>
                 </>
               ) : (
-                /* -------------------------------------------------------------
-                   GIAO DIỆN MỚI CHO RTC / FMCG (Khi chọn Tab Xanh lá)
-                   ------------------------------------------------------------- */
                 <div className="bg-white rounded-3xl shadow-sm border border-emerald-200/70 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
                   <div className="bg-emerald-900 text-white px-6 py-4 border-b border-emerald-500/30 flex items-center gap-2.5">
                     <span className="w-7 h-7 rounded-lg bg-emerald-400 text-gray-950 font-black text-xs flex items-center justify-center">
@@ -595,14 +710,15 @@ export default function AddProductPage() {
                       <textarea
                         rows={3}
                         placeholder="Mô tả chi tiết về nguồn gốc, hương vị đặc trưng..."
-                        className={`${getInputClass(errors.description)} resize-none`}
-                        value={product.description || ""}
-                        onChange={(e) =>
-                          setProduct({
-                            ...product,
-                            description: capitalizeFirst(e.target.value),
-                          })
-                        }
+                        className={`${getInputClass("description")} resize-none`}
+                        {...register("description", {
+                          onChange: (e) =>
+                            setValue(
+                              "description",
+                              capitalizeFirst(e.target.value),
+                              { shouldValidate: true },
+                            ),
+                        })}
                       />
                     </div>
 
@@ -613,14 +729,15 @@ export default function AddProductPage() {
                       <textarea
                         rows={2}
                         placeholder="VD: Cơm, Thịt Kho Trứng (75%), nước tương lên men..."
-                        className={`${getInputClass(errors.ingredients)} resize-none`}
-                        value={product.ingredients || ""}
-                        onChange={(e) =>
-                          setProduct({
-                            ...product,
-                            ingredients: capitalizeFirst(e.target.value),
-                          })
-                        }
+                        className={`${getInputClass("ingredients")} resize-none`}
+                        {...register("ingredients", {
+                          onChange: (e) =>
+                            setValue(
+                              "ingredients",
+                              capitalizeFirst(e.target.value),
+                              { shouldValidate: true },
+                            ),
+                        })}
                       />
                     </div>
 
@@ -635,16 +752,15 @@ export default function AddProductPage() {
                         <textarea
                           rows={4}
                           placeholder="- Hâm nóng bằng vi sóng&#10;- Dùng kèm kim chi..."
-                          className={`${getInputClass(errors.usageInstructions)} resize-none whitespace-pre-wrap`}
-                          value={product.usageInstructions || ""}
-                          onChange={(e) =>
-                            setProduct({
-                              ...product,
-                              usageInstructions: capitalizeFirst(
-                                e.target.value,
+                          className={`${getInputClass("usageInstructions")} resize-none whitespace-pre-wrap`}
+                          {...register("usageInstructions", {
+                            onChange: (e) =>
+                              setValue(
+                                "usageInstructions",
+                                capitalizeFirst(e.target.value),
+                                { shouldValidate: true },
                               ),
-                            })
-                          }
+                          })}
                         />
                       </div>
 
@@ -658,16 +774,15 @@ export default function AddProductPage() {
                         <textarea
                           rows={4}
                           placeholder="- Bảo quản ngăn mát&#10;- Dùng trong 24h sau khi mở..."
-                          className={`${getInputClass(errors.storageInstructions)} resize-none whitespace-pre-wrap`}
-                          value={product.storageInstructions || ""}
-                          onChange={(e) =>
-                            setProduct({
-                              ...product,
-                              storageInstructions: capitalizeFirst(
-                                e.target.value,
+                          className={`${getInputClass("storageInstructions")} resize-none whitespace-pre-wrap`}
+                          {...register("storageInstructions", {
+                            onChange: (e) =>
+                              setValue(
+                                "storageInstructions",
+                                capitalizeFirst(e.target.value),
+                                { shouldValidate: true },
                               ),
-                            })
-                          }
+                          })}
                         />
                       </div>
                     </div>
@@ -683,14 +798,15 @@ export default function AddProductPage() {
                         <textarea
                           rows={3}
                           placeholder="Tiện lợi; Chuẩn vị nhà hàng; Không chất bảo quản"
-                          className={`${getInputClass(errors.highlights)} resize-none`}
-                          value={product.highlights || ""}
-                          onChange={(e) =>
-                            setProduct({
-                              ...product,
-                              highlights: capitalizeFirst(e.target.value),
-                            })
-                          }
+                          className={`${getInputClass("highlights")} resize-none`}
+                          {...register("highlights", {
+                            onChange: (e) =>
+                              setValue(
+                                "highlights",
+                                capitalizeFirst(e.target.value),
+                                { shouldValidate: true },
+                              ),
+                          })}
                         />
                       </div>
                       <div>
@@ -700,14 +816,15 @@ export default function AddProductPage() {
                         <textarea
                           rows={3}
                           placeholder="Không sử dụng nếu bao bì rách..."
-                          className={`${getInputClass(errors.warnings)} resize-none bg-red-50/20`}
-                          value={product.warnings || ""}
-                          onChange={(e) =>
-                            setProduct({
-                              ...product,
-                              warnings: capitalizeFirst(e.target.value),
-                            })
-                          }
+                          className={`${getInputClass("warnings")} resize-none bg-red-50/20`}
+                          {...register("warnings", {
+                            onChange: (e) =>
+                              setValue(
+                                "warnings",
+                                capitalizeFirst(e.target.value),
+                                { shouldValidate: true },
+                              ),
+                          })}
                         />
                       </div>
                     </div>
@@ -717,7 +834,7 @@ export default function AddProductPage() {
             </div>
 
             {/* CỘT PHẢI: UPLOAD ẢNH & PREVIEW (4/12) */}
-            <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
+            <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-20">
               <div className="bg-white rounded-3xl shadow-sm border border-amber-200/70 overflow-hidden">
                 <div className="bg-gray-900 text-white px-6 py-4 border-b border-amber-500/30 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -757,17 +874,17 @@ export default function AddProductPage() {
                     )}
                   </div>
 
+                  {/* SUBMIT BUTTON - BỌC TRONG FORM ĐỂ TRIGGER ZOD */}
                   <button
-                    type="button"
-                    disabled={submitting}
-                    onClick={handleFinalSubmit}
+                    type="submit"
+                    disabled={isSubmitting || isUploadingExcel}
                     className={`w-full cursor-pointer py-3.5 px-6 rounded-xl font-black text-xs uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 ${
                       formMode === "rtc"
                         ? "bg-emerald-500 hover:bg-emerald-600 text-white"
                         : "bg-[#ECA921] hover:bg-[#D89512] text-gray-950"
                     }`}
                   >
-                    {submitting ? (
+                    {isSubmitting ? (
                       <>
                         <IconLoader2 className="w-4 h-4 animate-spin" /> Đang
                         lưu...
@@ -781,7 +898,7 @@ export default function AddProductPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </form>
         </main>
         <Footer />
       </div>

@@ -2,11 +2,6 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-  // Thêm dòng này để test
-  console.log(
-    "🔥 MIDDLEWARE ĐANG CHẠY TẠI ĐƯỜNG DẪN:",
-    request.nextUrl.pathname,
-  );
 
   if (request.nextUrl.pathname.startsWith("/admin")) {
     const token = request.cookies.get("accessToken")?.value;
@@ -20,5 +15,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"], // /admin/:path* đã bao gồm cả /admin
+  matcher: ["/admin/:path*"], 
 };

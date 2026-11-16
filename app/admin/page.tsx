@@ -12,7 +12,6 @@ import {
   IconFilter,
   IconLoader2,
   IconPlus,
-  IconFileSpreadsheet,
   IconEdit,
   IconTrash,
   IconLayoutGrid,
@@ -123,12 +122,11 @@ const fetcher = (url: string) =>
 function AdminCatalogContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const excelInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   // 1. Trạng thái Đăng nhập & Chặn truy cập
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true); // Thêm state khóa màn hình
+  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
 
   useEffect(() => {
     const checkAuth = () => {
@@ -137,10 +135,10 @@ function AdminCatalogContent() {
       const isValid = !!(token && loggedInState === "true");
 
       if (!isValid) {
-        router.replace("/"); // Đẩy thẳng về trang chủ nếu LocalStorage trống
+        router.replace("/");
       } else {
         setIsLoggedIn(true);
-        setIsCheckingAuth(false); // Mở khóa cho phép hiển thị
+        setIsCheckingAuth(false);
       }
     };
     checkAuth();
@@ -176,17 +174,13 @@ function AdminCatalogContent() {
   const [searchTerm, setSearchTerm] = useState(searchFromUrl);
   const [selectedProtein, setSelectedProtein] = useState("ALL");
 
-  // State Modal Thêm / Sửa & Upload
+  // State Modal Sửa & Upload ảnh
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ApiProduct | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploadingExcel, setIsUploadingExcel] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  // State lưu file ảnh được chọn khi tạo sản phẩm mới (chưa có ID)
-  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
-
-  // State Form Thông tin Sản phẩm
+  // State Form Thông tin Sản phẩm (Chỉ phục vụ Edit)
   const [formData, setFormData] = useState({
     name: "",
     englishName: "",
@@ -321,136 +315,64 @@ function AdminCatalogContent() {
   };
 
   // ============================================================================
-  // CÁC HÀM CALL API (IMPORT EXCEL, UPLOAD ẢNH QUA PATCH, SỬA, XÓA)
+  // CÁC HÀM CALL API (UPLOAD ẢNH QUA PATCH, SỬA, XÓA)
   // ============================================================================
 
-  // 1. POST /api/products/import-excel
-  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 1. PATCH /api/products/:id/image với key 'file'
+  const handleImageFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !editingProduct?.id) return;
 
-    const formDataExcel = new FormData();
-    formDataExcel.append("file", file);
+    const formDataImg = new FormData();
+    formDataImg.append("file", file);
 
     try {
-      setIsUploadingExcel(true);
+      setIsUploadingImage(true);
       const token = localStorage.getItem("accessToken");
-
       const authHeaders: HeadersInit = token
         ? { Authorization: `Bearer ${token}` }
         : {};
 
       const response = await fetch(
-        `${API_BASE_URL}/api/products/import-excel`,
+        `${API_BASE_URL}/api/products/${editingProduct.id}/image`,
         {
-          method: "POST",
+          method: "PATCH",
           headers: authHeaders,
-          body: formDataExcel,
+          body: formDataImg,
         },
       );
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(result.message || "Lỗi khi import file Excel");
+        throw new Error(result.message || "Không thể cập nhật ảnh qua PATCH");
+      }
+
+      const newImageUrl =
+        result.imageUrl ||
+        result.url ||
+        result.secure_url ||
+        result.data?.imageUrl;
+
+      if (newImageUrl) {
+        setFormData((prev) => ({ ...prev, imageUrl: newImageUrl }));
       }
 
       await mutate();
-      toast.success(`Import Excel thành công! Tổng số: ${result.successCount ?? "Tất cả"}/${result.total ?? ""} dòng.`);
+      toast.success("Đã cập nhật ảnh sản phẩm lên Cloudinary thành công!");
     } catch (err: any) {
-      toast.error(`Lỗi Import Excel: ${err.message}`);
+      toast.error(`Lỗi upload ảnh: ${err.message}`);
     } finally {
-      setIsUploadingExcel(false);
-      if (excelInputRef.current) excelInputRef.current.value = "";
-    }
-  };
-
-  // 2. 🎯 CẬP NHẬT CHUẨN POSTMAN: PATCH /api/products/:id/image với key 'file'
-  const handleImageFileUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // A. Nếu đang sửa sản phẩm đã có id -> gọi thẳng PATCH /api/products/:id/image
-    if (editingProduct?.id) {
-      const formDataImg = new FormData();
-      formDataImg.append("file", file); // Key 'file' đúng chuẩn Postman
-
-      try {
-        setIsUploadingImage(true);
-        const token = localStorage.getItem("accessToken");
-        const authHeaders: HeadersInit = token
-          ? { Authorization: `Bearer ${token}` }
-          : {};
-
-        const response = await fetch(
-          `${API_BASE_URL}/api/products/${editingProduct.id}/image`,
-          {
-            method: "PATCH",
-            headers: authHeaders,
-            body: formDataImg,
-          },
-        );
-
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(result.message || "Không thể cập nhật ảnh qua PATCH");
-        }
-
-        const newImageUrl =
-          result.imageUrl ||
-          result.url ||
-          result.secure_url ||
-          result.data?.imageUrl;
-
-        if (newImageUrl) {
-          setFormData((prev) => ({ ...prev, imageUrl: newImageUrl }));
-        }
-
-        await mutate();
-        toast.success("Đã cập nhật ảnh sản phẩm lên Cloudinary thành công!");
-      } catch (err: any) {
-        toast.error(`Lỗi upload ảnh: ${err.message}`);
-      } finally {
-        setIsUploadingImage(false);
-        if (imageInputRef.current) imageInputRef.current.value = "";
-      }
-    } else {
-      // B. Nếu đang tạo mới (chưa có id) -> lưu tạm file, tạo preview và chờ bấm Lưu sẽ gọi PATCH
-      setPendingImageFile(file);
-      setFormData((prev) => ({
-        ...prev,
-        imageUrl: URL.createObjectURL(file),
-      }));
+      setIsUploadingImage(false);
       if (imageInputRef.current) imageInputRef.current.value = "";
     }
   };
 
-  // Mở Modal Thêm mới
-  const handleOpenCreateModal = () => {
-    setEditingProduct(null);
-    setPendingImageFile(null);
-    setFormData({
-      name: "",
-      englishName: "",
-      category: groupSlug || "thit-nhap-khau",
-      subCategory: selectedProtein !== "ALL" ? selectedProtein : "HEO",
-      suitableDishes: "",
-      characteristics: "",
-      productSpec: "",
-      marketPopularity: "Phổ biến",
-      suitableChannels: "",
-      imageUrl: "",
-    });
-    setVariantForms([]);
-    setIsFormModalOpen(true);
-  };
-
-  // Mở Modal Sửa Sản phẩm & Biến thể
+  // 2. Mở Modal Sửa Sản phẩm & Biến thể
   const handleOpenEditModal = (rawProd: ApiProduct, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setEditingProduct(rawProd);
-    setPendingImageFile(null);
     setFormData({
       name: rawProd.name || "",
       englishName: rawProd.englishName || "",
@@ -479,9 +401,11 @@ function AdminCatalogContent() {
     setIsFormModalOpen(true);
   };
 
-  // 3 & 4. Xử lý lưu thông tin sản phẩm và biến thể
+  // 3. Xử lý lưu cập nhật thông tin sản phẩm và biến thể
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingProduct) return;
+
     if (!formData.name.trim()) {
       toast.error("Vui lòng nhập tên sản phẩm!");
       return;
@@ -494,109 +418,69 @@ function AdminCatalogContent() {
         ? { Authorization: `Bearer ${token}` }
         : {};
 
-      if (editingProduct) {
-        // Cập nhật thông tin text của sản phẩm
-        const productRes = await fetch(
-          `${API_BASE_URL}/api/products/${editingProduct.id}`,
-          {
+      const productRes = await fetch(
+        `${API_BASE_URL}/api/products/${editingProduct.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            englishName: formData.englishName || null,
+            category: formData.category,
+            subCategory: formData.subCategory || null,
+            suitableDishes: formData.suitableDishes || null,
+            characteristics: formData.characteristics || null,
+            productSpec: formData.productSpec || null,
+            marketPopularity: formData.marketPopularity || null,
+            suitableChannels: formData.suitableChannels || null,
+            imageUrl: formData.imageUrl.trim() || null,
+          }),
+        },
+      );
+
+      if (!productRes.ok) {
+        throw new Error("Cập nhật thông tin sản phẩm thất bại");
+      }
+
+      // Cập nhật từng variant
+      for (const v of variantForms) {
+        if (v.isNew) {
+          await fetch(`${API_BASE_URL}/api/product-variants`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...authHeaders,
+            },
+            body: JSON.stringify({
+              productId: editingProduct.id,
+              brandId: v.brandId || "default-brand-id",
+              packaging: v.packaging,
+              brandNote: v.brandNote,
+            }),
+          });
+        } else if (v.id) {
+          await fetch(`${API_BASE_URL}/api/product-variants/${v.id}`, {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
               ...authHeaders,
             },
             body: JSON.stringify({
-              name: formData.name,
-              englishName: formData.englishName || null,
-              category: formData.category,
-              subCategory: formData.subCategory || null,
-              suitableDishes: formData.suitableDishes || null,
-              characteristics: formData.characteristics || null,
-              productSpec: formData.productSpec || null,
-              marketPopularity: formData.marketPopularity || null,
-              suitableChannels: formData.suitableChannels || null,
-              imageUrl: formData.imageUrl.trim() || null,
+              productId: v.productId,
+              brandId: v.brandId,
+              packaging: v.packaging,
+              brandNote: v.brandNote,
             }),
-          },
-        );
-
-        if (!productRes.ok) {
-          throw new Error("Cập nhật thông tin sản phẩm thất bại");
-        }
-
-        // Cập nhật từng variant
-        for (const v of variantForms) {
-          if (v.isNew) {
-            await fetch(`${API_BASE_URL}/api/product-variants`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...authHeaders,
-              },
-              body: JSON.stringify({
-                productId: editingProduct.id,
-                brandId: v.brandId || "default-brand-id",
-                packaging: v.packaging,
-                brandNote: v.brandNote,
-              }),
-            });
-          } else if (v.id) {
-            await fetch(`${API_BASE_URL}/api/product-variants/${v.id}`, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-                ...authHeaders,
-              },
-              body: JSON.stringify({
-                productId: v.productId,
-                brandId: v.brandId,
-                packaging: v.packaging,
-                brandNote: v.brandNote,
-              }),
-            });
-          }
-        }
-
-        toast.success("Đã cập nhật sản phẩm và biến thể thành công!");
-      } else {
-        // Tạo sản phẩm mới
-        const createRes = await fetch(`${API_BASE_URL}/api/products`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeaders,
-          },
-          body: JSON.stringify({
-            ...formData,
-            imageUrl: pendingImageFile
-              ? null
-              : formData.imageUrl.trim() || null,
-          }),
-        });
-
-        if (!createRes.ok) {
-          throw new Error("Tạo sản phẩm mới thất bại");
-        }
-
-        const newProd = await createRes.json();
-
-        // Nếu có chọn ảnh khi tạo mới, gọi tiếp PATCH /api/products/:id/image
-        if (pendingImageFile && newProd?.id) {
-          const patchFormData = new FormData();
-          patchFormData.append("file", pendingImageFile);
-
-          await fetch(`${API_BASE_URL}/api/products/${newProd.id}/image`, {
-            method: "PATCH",
-            headers: authHeaders,
-            body: patchFormData,
           });
         }
-
-        toast.success("Đã tạo sản phẩm mới thành công!");
       }
 
+      toast.success("Đã cập nhật sản phẩm và biến thể thành công!");
       await mutate();
       setIsFormModalOpen(false);
-      setPendingImageFile(null);
     } catch (err: any) {
       toast.error(`Lỗi: ${err.message}`);
     } finally {
@@ -604,7 +488,7 @@ function AdminCatalogContent() {
     }
   };
 
-  // Xóa sản phẩm
+  // 4. Xóa sản phẩm
   const handleDeleteProduct = async (
     rawProd: ApiProduct,
     e?: React.MouseEvent,
@@ -648,7 +532,7 @@ function AdminCatalogContent() {
 
       <div className="min-h-screen bg-gray-50/50 py-10 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          {/* HEADER */}
+          {/* HEADER (Đã bỏ 2 nút Thêm sản phẩm và Thêm bằng Excel) */}
           <div className="bg-gradient-to-r from-gray-900 via-[#4A2E16] to-gray-900 rounded-3xl p-8 md:p-10 text-white shadow-xl mb-8 border border-amber-500/20 relative overflow-hidden">
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="text-center md:text-left max-w-2xl">
@@ -662,41 +546,6 @@ function AdminCatalogContent() {
                   Quản trị viên có thể nhấp trực tiếp vào từng thẻ sản phẩm để
                   xem chi tiết, hoặc bấm Sửa / Xóa nhanh.
                 </p>
-              </div>
-
-              {/* Cụm nút Quản trị */}
-              <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
-                <input
-                  ref={excelInputRef}
-                  type="file"
-                  accept=".xlsx, .xls"
-                  onChange={handleExcelUpload}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  disabled={isUploadingExcel}
-                  onClick={() => excelInputRef.current?.click()}
-                  className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold text-xs shadow-lg transition-all"
-                >
-                  {isUploadingExcel ? (
-                    <IconLoader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <IconFileSpreadsheet className="w-4 h-4" />
-                  )}
-                  <span>
-                    {isUploadingExcel ? "Đang import..." : "Thêm bằng Excel"}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleOpenCreateModal}
-                  className="cursor-pointer inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#ECA921] hover:bg-[#D89512] text-white font-bold text-xs shadow-lg transition-all"
-                >
-                  <IconPlus className="w-4 h-4" />
-                  <span>Thêm Sản Phẩm</span>
-                </button>
               </div>
             </div>
           </div>
@@ -1055,15 +904,13 @@ function AdminCatalogContent() {
             }}
           />
 
-          {/* MODAL THÊM / SỬA SẢN PHẨM & UPLOAD ẢNH QUA PATCH */}
-          {isFormModalOpen && (
+          {/* MODAL SỬA SẢN PHẨM & UPLOAD ẢNH QUA PATCH */}
+          {isFormModalOpen && editingProduct && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
               <div className="bg-white rounded-3xl max-w-3xl w-full p-6 md:p-8 shadow-2xl border border-amber-100 my-8 max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between pb-4 border-b border-gray-100">
                   <h2 className="text-lg font-extrabold text-[#4A2E16] uppercase">
-                    {editingProduct
-                      ? `Cập nhật: ${editingProduct.name}`
-                      : "Thêm sản phẩm mới"}
+                    Cập nhật: {editingProduct.name}
                   </h2>
                   <button
                     type="button"
@@ -1153,11 +1000,10 @@ function AdminCatalogContent() {
                   <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/70 space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="block font-bold text-[#4A2E16]">
-                        Hình ảnh sản phẩm (PATCH /api/products/:id/image)[cite:
-                        3]
+                        Hình ảnh sản phẩm (PATCH /api/products/:id/image)
                       </label>
                       <span className="text-[10px] text-amber-700 font-semibold">
-                        Form key: <strong>file</strong>[cite: 3]
+                        Form key: <strong>file</strong>
                       </span>
                     </div>
 
@@ -1265,97 +1111,95 @@ function AdminCatalogContent() {
                   </div>
 
                   {/* BIẾN THỂ THƯƠNG HIỆU */}
-                  {editingProduct && (
-                    <div className="pt-4 border-t border-gray-200 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-extrabold text-[#4A2E16] uppercase text-xs">
-                          Biến thể theo Thương hiệu (Product Variants)
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setVariantForms([
-                              ...variantForms,
-                              {
-                                id: "",
-                                productId: editingProduct.id,
-                                brandId: "",
-                                brandName: "Thương hiệu mới",
-                                price: 0,
-                                packaging: "",
-                                brandNote: "",
-                                isNew: true,
-                              },
-                            ]);
-                          }}
-                          className="cursor-pointer inline-flex items-center gap-1 px-3 py-1 bg-amber-100 hover:bg-[#ECA921] text-[#4A2E16] hover:text-white rounded-lg text-xs font-bold transition-all"
-                        >
-                          <IconPlus className="w-3.5 h-3.5" /> Thêm biến thể
-                        </button>
-                      </div>
-
-                      {variantForms.map((v, idx) => (
-                        <div
-                          key={v.id || idx}
-                          className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-3 relative"
-                        >
-                          <div className="sm:col-span-2 flex items-center justify-between font-bold text-amber-700">
-                            <span>
-                              {v.isNew
-                                ? "➕ Thêm biến thể mới"
-                                : `Thương hiệu: ${v.brandName}`}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = variantForms.filter(
-                                  (_, i) => i !== idx,
-                                );
-                                setVariantForms(updated);
-                              }}
-                              className="text-red-500 hover:text-red-700 text-[11px] cursor-pointer"
-                            >
-                              Xóa dòng
-                            </button>
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-bold text-gray-600 mb-1">
-                              Quy cách thùng (packaging)
-                            </label>
-                            <input
-                              type="text"
-                              value={v.packaging}
-                              placeholder="VD: Thùng 15kg..."
-                              onChange={(e) => {
-                                const updated = [...variantForms];
-                                updated[idx].packaging = e.target.value;
-                                setVariantForms(updated);
-                              }}
-                              className="w-full p-2 rounded-lg border border-gray-200 bg-white outline-none focus:border-[#ECA921]"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-bold text-gray-600 mb-1">
-                              Ghi chú thương hiệu (brandNote)
-                            </label>
-                            <input
-                              type="text"
-                              value={v.brandNote}
-                              placeholder="VD: Hàng đông lạnh nhập khẩu..."
-                              onChange={(e) => {
-                                const updated = [...variantForms];
-                                updated[idx].brandNote = e.target.value;
-                                setVariantForms(updated);
-                              }}
-                              className="w-full p-2 rounded-lg border border-gray-200 bg-white outline-none focus:border-[#ECA921]"
-                            />
-                          </div>
-                        </div>
-                      ))}
+                  <div className="pt-4 border-t border-gray-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-extrabold text-[#4A2E16] uppercase text-xs">
+                        Biến thể theo Thương hiệu (Product Variants)
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVariantForms([
+                            ...variantForms,
+                            {
+                              id: "",
+                              productId: editingProduct.id,
+                              brandId: "",
+                              brandName: "Thương hiệu mới",
+                              price: 0,
+                              packaging: "",
+                              brandNote: "",
+                              isNew: true,
+                            },
+                          ]);
+                        }}
+                        className="cursor-pointer inline-flex items-center gap-1 px-3 py-1 bg-amber-100 hover:bg-[#ECA921] text-[#4A2E16] hover:text-white rounded-lg text-xs font-bold transition-all"
+                      >
+                        <IconPlus className="w-3.5 h-3.5" /> Thêm biến thể
+                      </button>
                     </div>
-                  )}
+
+                    {variantForms.map((v, idx) => (
+                      <div
+                        key={v.id || idx}
+                        className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-3 relative"
+                      >
+                        <div className="sm:col-span-2 flex items-center justify-between font-bold text-amber-700">
+                          <span>
+                            {v.isNew
+                              ? "➕ Thêm biến thể mới"
+                              : `Thương hiệu: ${v.brandName}`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = variantForms.filter(
+                                (_, i) => i !== idx,
+                              );
+                              setVariantForms(updated);
+                            }}
+                            className="text-red-500 hover:text-red-700 text-[11px] cursor-pointer"
+                          >
+                            Xóa dòng
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                            Quy cách thùng (packaging)
+                          </label>
+                          <input
+                            type="text"
+                            value={v.packaging}
+                            placeholder="VD: Thùng 15kg..."
+                            onChange={(e) => {
+                              const updated = [...variantForms];
+                              updated[idx].packaging = e.target.value;
+                              setVariantForms(updated);
+                            }}
+                            className="w-full p-2 rounded-lg border border-gray-200 bg-white outline-none focus:border-[#ECA921]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-gray-600 mb-1">
+                            Ghi chú thương hiệu (brandNote)
+                          </label>
+                          <input
+                            type="text"
+                            value={v.brandNote}
+                            placeholder="VD: Hàng đông lạnh nhập khẩu..."
+                            onChange={(e) => {
+                              const updated = [...variantForms];
+                              updated[idx].brandNote = e.target.value;
+                              setVariantForms(updated);
+                            }}
+                            className="w-full p-2 rounded-lg border border-gray-200 bg-white outline-none focus:border-[#ECA921]"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
                   <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
                     <button
@@ -1375,9 +1219,7 @@ function AdminCatalogContent() {
                       ) : (
                         <IconCheck className="w-4 h-4" />
                       )}
-                      <span>
-                        {editingProduct ? "Lưu cập nhật" : "Tạo sản phẩm"}
-                      </span>
+                      <span>Lưu cập nhật</span>
                     </button>
                   </div>
                 </form>
