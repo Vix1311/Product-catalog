@@ -26,7 +26,7 @@ import {
   IconChevronRight,
 } from "@tabler/icons-react";
 import StickyHeader from "@/components/StickyHeader";
-import { logoutApi } from "../services/auth.service";
+import { logoutApi, authFetch } from "../services/auth.service";
 import Footer from "@/components/Footer";
 import NotFoundPage from "../not-found";
 
@@ -415,13 +415,9 @@ function AdminCatalogContent() {
         ? { Authorization: `Bearer ${token}` }
         : {};
 
-      const response = await fetch(
+      const response = await authFetch(
         `${API_BASE_URL}/api/products/${editingProduct.id}/image`,
-        {
-          method: "PATCH",
-          headers: authHeaders,
-          body: formDataImg,
-        },
+        { method: "PATCH", body: formDataImg },
       );
 
       const result = await response.json().catch(() => ({}));
@@ -493,19 +489,12 @@ function AdminCatalogContent() {
 
     try {
       setIsSubmitting(true);
-      const token = localStorage.getItem("accessToken");
-      const authHeaders: HeadersInit = token
-        ? { Authorization: `Bearer ${token}` }
-        : {};
 
-      const productRes = await fetch(
+      const productRes = await authFetch(
         `${API_BASE_URL}/api/products/${editingProduct.id}`,
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeaders,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: formData.name,
             englishName: formData.englishName || null,
@@ -528,12 +517,9 @@ function AdminCatalogContent() {
       // Cập nhật từng variant
       for (const v of variantForms) {
         if (v.isNew) {
-          await fetch(`${API_BASE_URL}/api/product-variants`, {
+          const res = await authFetch(`${API_BASE_URL}/api/product-variants`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...authHeaders,
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               productId: editingProduct.id,
               brandId: v.brandId || "default-brand-id",
@@ -541,20 +527,22 @@ function AdminCatalogContent() {
               brandNote: v.brandNote,
             }),
           });
+          if (!res.ok) throw new Error("Thêm biến thể thất bại");
         } else if (v.id) {
-          await fetch(`${API_BASE_URL}/api/product-variants/${v.id}`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              ...authHeaders,
+          const res = await authFetch(
+            `${API_BASE_URL}/api/product-variants/${v.id}`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                productId: v.productId,
+                brandId: v.brandId,
+                packaging: v.packaging,
+                brandNote: v.brandNote,
+              }),
             },
-            body: JSON.stringify({
-              productId: v.productId,
-              brandId: v.brandId,
-              packaging: v.packaging,
-              brandNote: v.brandNote,
-            }),
-          });
+          );
+          if (!res.ok) throw new Error("Cập nhật biến thể thất bại");
         }
       }
 
@@ -583,15 +571,12 @@ function AdminCatalogContent() {
     }
 
     try {
-      const token = localStorage.getItem("accessToken");
-      const authHeaders: HeadersInit = token
-        ? { Authorization: `Bearer ${token}` }
-        : {};
-
-      const res = await fetch(`${API_BASE_URL}/api/products/${rawProd.id}`, {
-        method: "DELETE",
-        headers: authHeaders,
-      });
+      const res = await authFetch(
+        `${API_BASE_URL}/api/products/${rawProd.id}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       if (!res.ok) throw new Error("Xóa sản phẩm thất bại");
 
@@ -1201,7 +1186,9 @@ function AdminCatalogContent() {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => handlePageChange(safeCurrentPage - 1, true)}
+                        onClick={() =>
+                          handlePageChange(safeCurrentPage - 1, true)
+                        }
                         disabled={safeCurrentPage === 1}
                         aria-label="Trang trước"
                         className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 border border-amber-200/80 text-[#4A2E16] hover:bg-amber-50 hover:text-[#ECA921] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
@@ -1237,7 +1224,9 @@ function AdminCatalogContent() {
 
                       <button
                         type="button"
-                        onClick={() => handlePageChange(safeCurrentPage + 1, true)}
+                        onClick={() =>
+                          handlePageChange(safeCurrentPage + 1, true)
+                        }
                         disabled={safeCurrentPage === totalPages}
                         aria-label="Trang sau"
                         className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 border border-amber-200/80 text-[#4A2E16] hover:bg-amber-50 hover:text-[#ECA921] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
