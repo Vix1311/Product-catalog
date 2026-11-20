@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, Suspense, useEffect } from "react";
+import React, { useState, useMemo, Suspense, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import ProductDetailModal, {
@@ -11,9 +11,11 @@ import {
   IconEye,
   IconFilter,
   IconLoader2,
+  IconChevronLeft,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import StickyHeader from "@/components/StickyHeader";
-import { logoutApi } from "../services/auth.service"; // Điều chỉnh đường dẫn tương đối đúng với project của bạn nếu cần
+import { logoutApi } from "../services/auth.service";
 import Footer from "@/components/Footer";
 
 // Interface map theo đúng response API từ Postman
@@ -37,17 +39,24 @@ interface ApiVariant {
 interface ApiProduct {
   id: string;
   name: string;
-  englishName: string;
+  englishName: string | null;
   category: string;
-  subCategory: string;
-  suitableDishes: string;
-  characteristics: string;
+  subCategory: string | null;
+  suitableDishes: string | null;
+  characteristics: string | null;
   imageUrl: string | null;
   createdAt: string;
   updatedAt: string;
-  productSpec: string;
-  marketPopularity: string;
-  suitableChannels: string;
+  productSpec: string | null;
+  marketPopularity: string | null;
+  suitableChannels: string | null;
+  // --- 6 TRƯỜNG MỚI TỪ DATABASE ---
+  description: string | null;
+  ingredients: string | null;
+  usageInstructions: string | null;
+  storageInstructions: string | null;
+  warnings: string | null;
+  highlights: string | null;
   variants: ApiVariant[];
 }
 
@@ -56,11 +65,13 @@ interface CatalogProduct extends ProductDetail {
   subCategorySlug?: string;
 }
 
+const ITEMS_PER_PAGE = 12;
+
 const categoryTitleMap: Record<string, string> = {
   "thit-nhap-khau": "THỊT NHẬP KHẨU",
   surimi: "SURIMI & CHẢ CÁ",
   sauce: "SAUCE / NƯỚC SỐT",
-  mayonnaise: "MAYONNAISE",
+  mayonaise: "MAYONAISE",
   bia: "BIA & ĐỒ UỐNG",
   "cha-bong": "CHÀ BÔNG HEO / GÀ",
   rte: "RTE (THỰC PHẨM ĂN LIỀN)",
@@ -76,14 +87,31 @@ const proteinFilters = [
   { id: "TRÂU", label: "Thịt Trâu" },
 ];
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://product-catalog-be-henna.vercel.app";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://product-catalog-be-henna.vercel.app";
 
 const fetcher = (url: string) =>
   fetch(`${API_BASE_URL}${url}`).then((res) => res.json());
 
+// Helper tạo dãy số trang có dấu "..." khi danh sách dài
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 5) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 3) {
+    return [1, 2, 3, 4, "...", total];
+  }
+  if (current >= total - 2) {
+    return [1, "...", total - 3, total - 2, total - 1, total];
+  }
+  return [1, "...", current - 1, current, current + 1, "...", total];
+}
+
 function CatalogContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const listTopRef = useRef<HTMLDivElement>(null);
 
   // 1. Quản lý trạng thái xác thực người dùng thực tế
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -125,6 +153,7 @@ function CatalogContent() {
   );
   const [searchTerm, setSearchTerm] = useState(searchFromUrl);
   const [selectedProtein, setSelectedProtein] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     setSearchTerm(searchFromUrl);
@@ -141,6 +170,11 @@ function CatalogContent() {
       setSelectedProtein("ALL");
     }
   }, [subCategorySlug, showProteinFilter]);
+
+  // Reset về trang 1 mỗi khi đổi nhóm, bộ lọc thịt hoặc từ khóa tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [groupSlug, selectedProtein, searchTerm]);
 
   // 3. Tạo URL động để call API qua SWR
   const apiUrl = useMemo(() => {
@@ -160,7 +194,7 @@ function CatalogContent() {
     isLoading,
   } = useSWR<ApiProduct[]>(apiUrl, fetcher);
 
-  // 4. Map dữ liệu từ API sang dạng UI
+  // 4. Map dữ liệu từ API sang dạng UI (Đã bổ sung đầy đủ 6 trường mới)
   const products: CatalogProduct[] = useMemo(() => {
     if (!Array.isArray(rawProducts)) return [];
 
@@ -191,20 +225,52 @@ function CatalogContent() {
         nhom: (p.subCategory || "KHÁC").toUpperCase(),
         categorySlug: p.category || groupSlug,
         subCategorySlug: p.subCategory?.toLowerCase() || "",
-        phuHopMon: p.suitableDishes || "Chưa cập nhật",
-        quyCachCatHang: p.productSpec || "Chưa cập nhật",
-        phanTichThuongHieu: brandNotes || "Chưa cập nhật",
-        mucDoPhoBien: p.marketPopularity || "Bình thường",
+        // Không gán cứng "Chưa cập nhật" để Modal tự động ẩn các trường trống
+        phuHopMon: p.suitableDishes || "",
+        quyCachCatHang: p.productSpec || "",
+        phanTichThuongHieu: brandNotes || "",
+        mucDoPhoBien: p.marketPopularity || "",
         dacDiemSanPham: p.characteristics || "",
         phuHopKenhQuan: p.suitableChannels || "",
-        thuongHieuXuatXu: brandOrigins || "Chưa cập nhật",
-        quyCachThung: packagings || "Chưa cập nhật",
+        thuongHieuXuatXu: brandOrigins || "",
+        quyCachThung: packagings || "",
+        // --- TRUYỀN 6 TRƯỜNG MỚI XUỐNG MODAL ---
+        moTa: p.description || "",
+        thanhPhan: p.ingredients || "",
+        cachDung: p.usageInstructions || "",
+        baoQuan: p.storageInstructions || "",
+        luuY: p.warnings || "",
+        tieuChi: p.highlights || "",
         imageUrl:
           p.imageUrl ||
           "https://images.unsplash.com/photo-1603048588665-791ca8aea617?q=80&w=500",
       };
     });
   }, [rawProducts, groupSlug]);
+
+  // 5. Tính toán dữ liệu phân trang
+  const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE);
+  const safeCurrentPage = Math.min(currentPage, Math.max(totalPages, 1));
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    return products.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [products, safeCurrentPage]);
+
+  const startItem =
+    products.length === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endItem = Math.min(safeCurrentPage * ITEMS_PER_PAGE, products.length);
+
+  const handlePageChange = (page: number, shouldScroll = false) => {console.log("PAGE CHANGE:", { page, shouldScroll, el: listTopRef.current });
+    if (page < 1 || page > totalPages || page === safeCurrentPage) return;
+    setCurrentPage(page);
+    if (shouldScroll) {
+      listTopRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  };
 
   const pageTitle = categoryTitleMap[groupSlug] || "DANH MỤC SẢN PHẨM KHÁNH AN";
 
@@ -225,6 +291,7 @@ function CatalogContent() {
   const handleResetFilters = () => {
     setSelectedProtein("ALL");
     setSearchTerm("");
+    setCurrentPage(1);
     router.push(`/catalog?group=${groupSlug}`);
   };
 
@@ -252,7 +319,8 @@ function CatalogContent() {
 
           {/* BỘ LỌC & TÌM KIẾM */}
           <div
-            className={`flex flex-col md:flex-row items-center gap-4 mb-8 bg-white p-4 rounded-2xl border border-amber-100/80 shadow-xs ${showProteinFilter ? "justify-between" : "justify-end"}`}
+            ref={listTopRef}
+            className={`scroll-mt-24 flex flex-col md:flex-row items-center gap-4 mb-8 bg-white p-4 rounded-2xl border border-amber-100/80 shadow-xs ${showProteinFilter ? "justify-between" : "justify-end"}`}
           >
             {showProteinFilter && (
               <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-none">
@@ -295,9 +363,9 @@ function CatalogContent() {
               <div className="text-xs text-gray-500 font-semibold whitespace-nowrap hidden sm:block">
                 Hiển thị{" "}
                 <strong className="text-[#ECA921] font-bold text-sm">
-                  {products.length}
+                  {products.length > 0 ? `${startItem}–${endItem}` : 0}
                 </strong>{" "}
-                mặt hàng
+                / {products.length} mặt hàng
               </div>
             </div>
           </div>
@@ -322,63 +390,153 @@ function CatalogContent() {
                 Thử lại
               </button>
             </div>
-          ) : products.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  onClick={() => setSelectedProduct(product)}
-                  className="group bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="relative h-52 overflow-hidden bg-gray-100">
-                      <img
-                        src={product.imageUrl}
-                        alt={product.tenTiengViet}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute top-3 left-3 bg-gray-900/80 text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-xs">
-                        STT #{product.stt}
+          ) : paginatedProducts.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {paginatedProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    onClick={() => setSelectedProduct(product)}
+                    className="group bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="relative h-52 overflow-hidden bg-gray-100">
+                        <img
+                          src={product.imageUrl}
+                          alt={product.tenTiengViet}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-3 left-3 bg-gray-900/80 text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-xs">
+                          STT #{product.stt}
+                        </div>
+                        <div className="absolute top-3 right-3 bg-[#ECA921] text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-xs">
+                          {product.nhom}
+                        </div>
                       </div>
-                      <div className="absolute top-3 right-3 bg-[#ECA921] text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-xs">
-                        {product.nhom}
+
+                      <div className="p-5">
+                        <span className="text-[11px] font-bold text-[#ECA921] uppercase tracking-wider block mb-1">
+                          NHÓM {product.nhom}
+                        </span>
+                        <h3 className="text-base font-extrabold text-gray-900 group-hover:text-[#ECA921] transition-colors leading-snug">
+                          {product.tenTiengViet}
+                        </h3>
+                        {product.tenTiengAnh && (
+                          <p className="text-xs text-gray-500 italic mt-0.5 font-medium">
+                            {product.tenTiengAnh}
+                          </p>
+                        )}
+
+                        <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5 text-xs text-gray-600">
+                          {product.phuHopMon ? (
+                            <p className="line-clamp-1">
+                              <strong className="text-gray-700">
+                                Món phù hợp:
+                              </strong>{" "}
+                              {product.phuHopMon}
+                            </p>
+                          ) : product.dacDiemSanPham ? (
+                            <p className="line-clamp-1">
+                              <strong className="text-gray-700">
+                                Đặc điểm:
+                              </strong>{" "}
+                              {product.dacDiemSanPham}
+                            </p>
+                          ) : product.moTa ? (
+                            <p className="line-clamp-1">
+                              <strong className="text-gray-700">Mô tả:</strong>{" "}
+                              {product.moTa}
+                            </p>
+                          ) : null}
+
+                          {product.thuongHieuXuatXu && (
+                            <p className="line-clamp-1">
+                              <strong className="text-gray-700">
+                                Xuất xứ:
+                              </strong>{" "}
+                              {product.thuongHieuXuatXu}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="p-5">
-                      <span className="text-[11px] font-bold text-[#ECA921] uppercase tracking-wider block mb-1">
-                        NHÓM {product.nhom}
-                      </span>
-                      <h3 className="text-base font-extrabold text-gray-900 group-hover:text-[#ECA921] transition-colors leading-snug">
-                        {product.tenTiengViet}
-                      </h3>
-                      <p className="text-xs text-gray-500 italic mt-0.5 font-medium">
-                        {product.tenTiengAnh}
-                      </p>
-
-                      <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5 text-xs text-gray-600">
-                        <p className="line-clamp-1">
-                          <strong className="text-gray-700">
-                            Món phù hợp:
-                          </strong>{" "}
-                          {product.phuHopMon}
-                        </p>
-                        <p className="line-clamp-1">
-                          <strong className="text-gray-700">Xuất xứ:</strong>{" "}
-                          {product.thuongHieuXuatXu}
-                        </p>
-                      </div>
+                    <div className="px-5 pb-5 pt-2">
+                      <button className="w-full py-2.5 rounded-xl bg-amber-50 hover:cursor-pointer group-hover:bg-[#ECA921] text-[#4A2E16] group-hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-2 border border-amber-200/60 group-hover:border-transparent">
+                        <IconEye className="w-4 h-4" /> Xem Chi Tiết
+                      </button>
                     </div>
                   </div>
+                ))}
+              </div>
 
-                  <div className="px-5 pb-5 pt-2">
-                    <button className="w-full py-2.5 rounded-xl bg-amber-50 hover:cursor-pointer group-hover:bg-[#ECA921] text-[#4A2E16] group-hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-2 border border-amber-200/60 group-hover:border-transparent">
-                      <IconEye className="w-4 h-4" /> Xem Chi Tiết
+              {/* THANH PHÂN TRANG (12 SẢN PHẨM / TRANG) */}
+              {totalPages > 1 && (
+                <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-5 py-4 rounded-2xl border border-amber-100/80 shadow-xs">
+                  <p className="text-xs text-gray-500 font-medium tabular-nums">
+                    Trang{" "}
+                    <strong className="text-[#4A2E16]">
+                      {safeCurrentPage}
+                    </strong>{" "}
+                    / <strong className="text-[#4A2E16]">{totalPages}</strong>{" "}
+                    (Tổng {products.length} mặt hàng)
+                  </p>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handlePageChange(safeCurrentPage - 1, true)
+                      }
+                      disabled={safeCurrentPage === 1}
+                      aria-label="Trang trước"
+                      className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 border border-amber-200/80 text-[#4A2E16] hover:bg-amber-50 hover:text-[#ECA921] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    >
+                      <IconChevronLeft className="w-4 h-4" />
+                      <span className="hidden sm:inline">Trước</span>
+                    </button>
+
+                    {getPageNumbers(safeCurrentPage, totalPages).map(
+                      (page, idx) =>
+                        page === "..." ? (
+                          <span
+                            key={`ellipsis-${idx}`}
+                            className="px-2 py-1 text-xs font-bold text-gray-400 select-none"
+                          >
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={page}
+                            type="button"
+                            onClick={() => handlePageChange(page, true)}
+                            className={`min-w-9 h-9 px-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer tabular-nums ${
+                              safeCurrentPage === page
+                                ? "bg-[#ECA921] text-white shadow-md shadow-amber-500/20"
+                                : "bg-gray-100 text-gray-600 hover:bg-amber-50 hover:text-[#ECA921]"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ),
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handlePageChange(safeCurrentPage + 1, true)
+                      }
+                      disabled={safeCurrentPage === totalPages}
+                      aria-label="Trang sau"
+                      className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 border border-amber-200/80 text-[#4A2E16] hover:bg-amber-50 hover:text-[#ECA921] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    >
+                      <span className="hidden sm:inline">Sau</span>
+                      <IconChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-16 bg-white rounded-3xl border border-amber-100 shadow-2xs">
               <p className="text-gray-500 text-sm font-semibold">

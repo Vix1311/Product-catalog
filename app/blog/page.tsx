@@ -8,6 +8,8 @@ import {
   IconArrowRight,
   IconFlame,
   IconLoader2,
+  IconChevronLeft, // MỚI: Thêm icon cho phân trang
+  IconChevronRight, // MỚI: Thêm icon cho phân trang
 } from "@tabler/icons-react";
 import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "../services/auth.service";
@@ -25,8 +27,8 @@ interface BlogPost {
   readTime: string;
   imageUrl: string;
   featured?: boolean;
-  createdAt?: string; // Dữ liệu thật từ backend
-  slug?: string; // Dữ liệu thật từ backend
+  createdAt?: string;
+  slug?: string;
 }
 
 const CATEGORIES = [
@@ -36,12 +38,17 @@ const CATEGORIES = [
   "Xu Hướng Ẩm Thực",
 ];
 
+const POSTS_PER_PAGE = 9;
+
 export default function BlogPage() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+
+  // MỚI: State cho trang hiện tại
+  const [currentPage, setCurrentPage] = useState(1);
 
   // 1. Kiểm tra trạng thái đăng nhập
   useEffect(() => {
@@ -64,8 +71,6 @@ export default function BlogPage() {
         const res = await fetch(`${API_BASE}/api/posts`);
         if (res.ok) {
           const data = await res.json();
-
-          // FIX: Xử lý linh hoạt dù backend trả về mảng trực tiếp hay bọc trong object "posts"
           const rawPosts = Array.isArray(data) ? data : data.posts || [];
 
           const formattedPosts = rawPosts.map((post: any) => ({
@@ -101,7 +106,12 @@ export default function BlogPage() {
     }
   };
 
-  // 3. Logic Lọc & Tìm kiếm ở phía Frontend (Hoạt động tức thì không cần gọi lại API)
+  // MỚI: Reset về trang 1 khi người dùng đổi bộ lọc hoặc tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, searchQuery]);
+
+  // 3. Logic Lọc & Tìm kiếm
   const filteredPosts = posts.filter((post) => {
     const matchCategory =
       selectedCategory === "Tất cả" || post.category === selectedCategory;
@@ -113,13 +123,22 @@ export default function BlogPage() {
 
   const featuredPost =
     filteredPosts.find((p) => p.featured) || filteredPosts[0];
-  const regularPosts = filteredPosts.filter((p) => p.id !== featuredPost?.id);
+  const allRegularPosts = filteredPosts.filter(
+    (p) => p.id !== featuredPost?.id,
+  );
+
+  // MỚI: Logic Phân trang cho các bài viết thông thường
+  const totalPages = Math.ceil(allRegularPosts.length / POSTS_PER_PAGE);
+  const currentRegularPosts = allRegularPosts.slice(
+    (currentPage - 1) * POSTS_PER_PAGE,
+    currentPage * POSTS_PER_PAGE,
+  );
 
   return (
     <div>
       <StickyHeader isLoggedIn={isLoggedIn} onLogout={handleLogout} />
       <div className="min-h-screen bg-[#FAF8F5] text-gray-800">
-        {/* BANNER MẪU HÌNH 2 */}
+        {/* BANNER */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6">
           <div
             className="w-full rounded-[28px] py-14 px-6 text-center shadow-2xl border border-amber-500/20"
@@ -181,7 +200,6 @@ export default function BlogPage() {
         </div>
 
         {isLoading ? (
-          // TRẠNG THÁI ĐANG TẢI DỮ LIỆU
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-[#ECA921]">
             <IconLoader2 className="w-10 h-10 animate-spin" />
             <p className="font-bold text-gray-600">
@@ -189,7 +207,6 @@ export default function BlogPage() {
             </p>
           </div>
         ) : filteredPosts.length === 0 ? (
-          // TRẠNG THÁI KHÔNG TÌM THẤY BÀI VIẾT
           <div className="text-center py-20">
             <p className="text-gray-500 font-medium">
               Không tìm thấy bài viết nào phù hợp.
@@ -197,11 +214,10 @@ export default function BlogPage() {
           </div>
         ) : (
           <>
-            {/* BÀI VIẾT TIÊU ĐIỂM (FEATURED POST) */}
-            {featuredPost && (
+            {/* BÀI VIẾT TIÊU ĐIỂM (Chỉ hiện ở trang 1 để tránh lặp lại) */}
+            {featuredPost && currentPage === 1 && (
               <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-8">
                 <div className="bg-white rounded-3xl overflow-hidden shadow-md border border-amber-200/70 grid grid-cols-1 lg:grid-cols-12">
-                  {/* FIX 1: Đổi lg:h-auto thành lg:h-[420px] để ép cứng chiều cao form */}
                   <Link
                     href={`/blog/${featuredPost.slug || featuredPost.id}`}
                     className="lg:col-span-7 h-72 sm:h-96 lg:h-[420px] overflow-hidden relative bg-gray-900 block group"
@@ -241,19 +257,16 @@ export default function BlogPage() {
                         href={`/blog/${featuredPost.slug || featuredPost.id}`}
                         className="block"
                       >
-                        {/* FIX 2: Tăng kích thước Tiêu đề (lg:text-3xl) và giới hạn 3 dòng để lấp đầy khoảng trống */}
                         <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 leading-snug hover:text-[#B8731B] transition-colors cursor-pointer line-clamp-2 lg:line-clamp-3">
                           {featuredPost.title}
                         </h2>
                       </Link>
 
-                      {/* FIX 3: Tăng font size Excerpt và cho phép hiển thị lên tới 5 dòng (line-clamp-5) */}
                       <p className="text-sm lg:text-base text-gray-600 leading-relaxed line-clamp-3 lg:line-clamp-5">
                         {featuredPost.excerpt}
                       </p>
                     </div>
 
-                    {/* Phần nút nhấn tự động được đẩy xuống đáy nhờ justify-between */}
                     <div className="pt-6 mt-6 border-t border-amber-200/50 flex items-center justify-between">
                       <Link
                         href={`/blog/${featuredPost.slug || featuredPost.id}`}
@@ -273,7 +286,7 @@ export default function BlogPage() {
             {/* DANH SÁCH BÀI VIẾT (GRID 3 CỘT) */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-10">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {regularPosts.map((post) => (
+                {currentRegularPosts.map((post) => (
                   <article
                     key={post.id}
                     className="bg-white rounded-2xl overflow-hidden border border-amber-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group"
@@ -334,6 +347,47 @@ export default function BlogPage() {
                   </article>
                 ))}
               </div>
+
+              {/* MỚI: UI PHÂN TRANG */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-12">
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(prev - 1, 1))
+                    }
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <IconChevronLeft className="w-5 h-5" />
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-10 h-10 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+                          currentPage === page
+                            ? "bg-[#ECA921] text-gray-950 shadow-sm"
+                            : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
+
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <IconChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
             </section>
           </>
         )}

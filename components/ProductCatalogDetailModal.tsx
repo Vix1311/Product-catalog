@@ -42,6 +42,25 @@ export interface ProductDetail {
   luuY?: string;
   tieuChi?: string;
 
+  // --- DỰ PHÒNG TRƯỜNG PRISMA GỐC ---
+  description?: string | null;
+  ingredients?: string | null;
+  usageInstructions?: string | null;
+  storageInstructions?: string | null;
+  warnings?: string | null;
+  highlights?: string | null;
+
+  // --- DỰ PHÒNG RAW PRODUCT TỪ TRANG ADMIN ---
+  rawProduct?: {
+    marketPopularity?: string | null;
+    description?: string | null;
+    ingredients?: string | null;
+    usageInstructions?: string | null;
+    storageInstructions?: string | null;
+    warnings?: string | null;
+    highlights?: string | null;
+  };
+
   imageUrl: string;
 }
 
@@ -52,6 +71,20 @@ interface ModalProps {
   onEdit?: (product: ProductDetail) => void;
   onDelete?: (product: ProductDetail) => void;
 }
+
+const cleanValue = (val?: string | null): string => {
+  if (!val) return "";
+  const trimmed = String(val).trim();
+  if (
+    !trimmed ||
+    trimmed.toLowerCase() === "chưa cập nhật" ||
+    trimmed.toLowerCase() === "null" ||
+    trimmed.toLowerCase() === "undefined"
+  ) {
+    return "";
+  }
+  return trimmed;
+};
 
 export default function ProductDetailModal({
   product,
@@ -67,27 +100,60 @@ export default function ProductDetailModal({
 
   const isAdminMode = propIsAdmin ?? pathname?.startsWith("/admin");
 
-  const isRTC = product.nhom.toUpperCase().includes("RTC") || !!product.moTa;
+  // Tự fallback sang product.rawProduct để isAdminMode hiển thị đầy đủ y hệt trang Catalog mặc định
+  const moTa = cleanValue(
+    product.moTa || product.description || product.rawProduct?.description,
+  );
+  const thanhPhan = cleanValue(
+    product.thanhPhan || product.ingredients || product.rawProduct?.ingredients,
+  );
+  const cachDung = cleanValue(
+    product.cachDung ||
+      product.usageInstructions ||
+      product.rawProduct?.usageInstructions,
+  );
+  const baoQuan = cleanValue(
+    product.baoQuan ||
+      product.storageInstructions ||
+      product.rawProduct?.storageInstructions,
+  );
+  const luuY = cleanValue(
+    product.luuY || product.warnings || product.rawProduct?.warnings,
+  );
+  const tieuChi = cleanValue(
+    product.tieuChi || product.highlights || product.rawProduct?.highlights,
+  );
+
+  const phuHopMon = cleanValue(product.phuHopMon);
+  const quyCachCatHang = cleanValue(product.quyCachCatHang);
+  const dacDiemSanPham = cleanValue(product.dacDiemSanPham);
+  const phanTichThuongHieu = cleanValue(product.phanTichThuongHieu);
+  const mucDoPhoBien = product.rawProduct
+    ? cleanValue(product.rawProduct.marketPopularity)
+    : cleanValue(product.mucDoPhoBien);
+  const phuHopKenhQuan = cleanValue(product.phuHopKenhQuan);
+  const thuongHieuXuatXu = cleanValue(product.thuongHieuXuatXu);
+  const quyCachThung = cleanValue(product.quyCachThung);
 
   const parseList = (text?: string) =>
     text
       ? text
           .split(";")
-          .map((item) => item.trim())
+          .map((item) => cleanValue(item))
           .filter(Boolean)
       : [];
 
   const parseLines = (text?: string) =>
     text
       ? text
-          .split(/(?:\n|- )/)
-          .map((item) => item.trim())
+          .split(/(?:\r?\n|;|- )/)
+          .map((item) => cleanValue(item))
           .filter(Boolean)
       : [];
 
-  const thuongHieuList = parseList(product.thuongHieuXuatXu);
-  const rawQuyCachList = parseList(product.quyCachThung);
-  const phuHopMonList = parseList(product.phuHopMon);
+  const thuongHieuList = parseList(thuongHieuXuatXu);
+  const rawQuyCachList = parseList(quyCachThung);
+  const phuHopMonList = parseList(phuHopMon);
 
   const quyCachThungList = rawQuyCachList.map((spec, idx) => {
     const matchingBrand = thuongHieuList.find((b) => {
@@ -102,6 +168,21 @@ export default function ProductDetailModal({
     return spec;
   });
 
+  const hasB2BTableRows = Boolean(
+    phuHopMonList.length > 0 ||
+    quyCachCatHang ||
+    dacDiemSanPham ||
+    phanTichThuongHieu,
+  );
+
+  const infoCardsCount = [thanhPhan, cachDung, baoQuan].filter(Boolean).length;
+  const gridColsClass =
+    infoCardsCount === 3
+      ? "grid-cols-1 md:grid-cols-3"
+      : infoCardsCount === 2
+        ? "grid-cols-1 md:grid-cols-2"
+        : "grid-cols-1";
+
   return (
     <div
       onClick={onClose}
@@ -109,8 +190,9 @@ export default function ProductDetailModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white w-full max-w-7xl rounded-2xl shadow-2xl overflow-hidden border border-amber-100 flex flex-col max-h-[90vh]"
+        className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden border border-amber-100 flex flex-col max-h-[90vh]"
       >
+        {/* HEADER */}
         <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white p-5 flex items-center justify-between border-b border-amber-500/30 shrink-0">
           <div>
             <div className="flex items-center gap-2">
@@ -124,9 +206,11 @@ export default function ProductDetailModal({
             <h3 className="text-xl font-black text-amber-100 mt-1.5">
               {product.tenTiengViet}
             </h3>
-            <p className="text-xs text-gray-300 italic font-medium">
-              {product.tenTiengAnh}
-            </p>
+            {cleanValue(product.tenTiengAnh) && (
+              <p className="text-xs text-gray-300 italic font-medium">
+                {product.tenTiengAnh}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -136,9 +220,11 @@ export default function ProductDetailModal({
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto space-y-6 text-sm text-gray-700">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <div className="lg:col-span-5 rounded-2xl overflow-hidden border-2 border-amber-200/80 shadow-md bg-gray-100 h-60 lg:h-72 shrink-0">
+        {/* BODY (Đồng nhất 100% giữa chế độ mặc định và Admin) */}
+        <div className="p-6 overflow-y-auto space-y-5 text-sm text-gray-700">
+          {/* HÀNG 1: ẢNH BÊN TRÁI + THÔNG TIN NHANH BÊN PHẢI */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+            <div className="lg:col-span-5 rounded-2xl overflow-hidden border-2 border-amber-200/80 shadow-sm bg-gray-100 h-56 lg:h-64">
               <img
                 src={product.imageUrl}
                 alt={product.tenTiengViet}
@@ -146,154 +232,172 @@ export default function ProductDetailModal({
               />
             </div>
 
-            {isRTC ? (
-              <div className="lg:col-span-7 bg-amber-50/40 p-5 rounded-2xl border border-amber-100/80 h-full flex flex-col justify-center">
-                <div className="space-y-4">
-                  <h4 className="text-lg font-black text-[#4A2E16] flex items-center gap-2">
-                    <IconInfoCircle className="w-5 h-5 text-[#ECA921]" />
-                    Mô tả sản phẩm
-                  </h4>
-                  <p className="text-gray-800 leading-relaxed font-medium">
-                    {product.moTa}
-                  </p>
-
-                  {product.tieuChi && (
-                    <div className="space-y-2.5 pt-4 border-t border-amber-200/50">
-                      {parseList(product.tieuChi).map((tc, idx) => (
-                        <div
-                          key={idx}
-                          className="flex gap-2 items-start text-sm text-gray-800 font-bold"
-                        >
-                          <div className="mt-0.5 bg-emerald-100 p-0.5 rounded-full">
-                            <IconCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          </div>
-                          <span>{tc}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="lg:col-span-7 bg-amber-50/40 p-5 rounded-2xl border border-amber-100/80 space-y-4">
+            <div className="lg:col-span-7 bg-amber-50/40 p-5 rounded-2xl border border-amber-100/80 flex flex-col justify-center space-y-4">
+              {thuongHieuList.length > 0 && (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
                     <IconWorld className="w-4 h-4 text-[#ECA921]" />
                     <span>Thương hiệu & Xuất xứ:</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5 pl-5">
-                    {thuongHieuList.length > 0 ? (
-                      thuongHieuList.map((item, idx) => (
-                        <span
-                          key={idx}
-                          className="bg-white border border-amber-200 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-lg"
-                        >
-                          {item}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-gray-800 font-semibold">
-                        {product.thuongHieuXuatXu}
+                    {thuongHieuList.map((item, idx) => (
+                      <span
+                        key={idx}
+                        className="bg-white border border-amber-200 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-lg"
+                      >
+                        {item}
                       </span>
-                    )}
+                    ))}
                   </div>
                 </div>
+              )}
 
-                <div className="space-y-1.5 pt-2 border-t border-amber-200/40">
+              {quyCachThungList.length > 0 && (
+                <div className="space-y-1.5 pt-3 border-t border-amber-200/40">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
                     <IconBox className="w-4 h-4 text-[#ECA921]" />
                     <span>Quy cách thùng / Theo nguồn:</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-5">
-                    {quyCachThungList.length > 0 ? (
-                      quyCachThungList.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-white/80 border border-amber-200/70 text-xs font-medium text-gray-800 px-2.5 py-1 rounded-md"
-                        >
-                          • {item}
-                        </div>
-                      ))
-                    ) : (
-                      <span className="text-xs text-gray-800 font-semibold">
-                        {product.quyCachThung}
-                      </span>
-                    )}
+                    {quyCachThungList.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-white/80 border border-amber-200/70 text-xs font-medium text-gray-800 px-2.5 py-1 rounded-md"
+                      >
+                        - {item}
+                      </div>
+                    ))}
                   </div>
                 </div>
+              )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-amber-200/40">
-                  <div>
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 mb-1">
-                      <IconStars className="w-4 h-4 text-[#ECA921]" />
-                      <span>Mức độ phổ biến:</span>
+              {(mucDoPhoBien || phuHopKenhQuan) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-amber-200/40">
+                  {mucDoPhoBien && (
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 mb-1">
+                        <IconStars className="w-4 h-4 text-[#ECA921]" />
+                        <span>Mức độ phổ biến:</span>
+                      </div>
+                      <span className="inline-block bg-amber-100 text-amber-800 text-xs font-extrabold px-3 py-1 rounded-full border border-amber-300/60 ml-5">
+                        {mucDoPhoBien}
+                      </span>
                     </div>
-                    <span className="inline-block bg-amber-100 text-amber-800 text-xs font-extrabold px-3 py-1 rounded-full border border-amber-300/60 ml-5">
-                      {product.mucDoPhoBien}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 mb-1">
-                      <IconBuildingStore className="w-4 h-4 text-[#ECA921]" />
-                      <span>Phù hợp kênh quán:</span>
+                  )}
+                  {phuHopKenhQuan && (
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 mb-1">
+                        <IconBuildingStore className="w-4 h-4 text-[#ECA921]" />
+                        <span>Phù hợp kênh quán:</span>
+                      </div>
+                      <div className="text-xs text-gray-800 font-semibold leading-relaxed ml-5">
+                        {phuHopKenhQuan}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-800 font-semibold leading-relaxed ml-5">
-                      {product.phuHopKenhQuan}
-                    </div>
-                  </div>
+                  )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {isRTC ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white border border-gray-200 p-5 rounded-2xl shadow-xs space-y-3">
-                <h4 className="font-bold text-[#4A2E16] flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#ECA921]"></span>{" "}
-                  Thành phần chính
-                </h4>
-                <p className="text-gray-700 leading-relaxed font-medium">
-                  {product.thanhPhan}
-                </p>
-              </div>
+          {/* HÀNG 2: MÔ TẢ SẢN PHẨM & TIÊU CHÍ NỔI BẬT */}
+          {(moTa || tieuChi) && (
+            <div className="bg-amber-50/30 p-5 rounded-2xl border border-amber-100/80 space-y-4">
+              {moTa && (
+                <div className="space-y-2">
+                  <h4 className="text-base font-black text-[#4A2E16] flex items-center gap-2">
+                    <IconInfoCircle className="w-5 h-5 text-[#ECA921]" />
+                    Mô tả sản phẩm
+                  </h4>
+                  <p className="text-gray-800 leading-relaxed font-medium whitespace-pre-line">
+                    {moTa}
+                  </p>
+                </div>
+              )}
 
-              <div className="space-y-4">
-                <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-xs space-y-2">
+              {tieuChi && (
+                <div
+                  className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${
+                    moTa ? "pt-4 border-t border-amber-200/50" : ""
+                  }`}
+                >
+                  {parseLines(tieuChi).map((tc, idx) => (
+                    <div
+                      key={idx}
+                      className="flex gap-2.5 items-start text-xs sm:text-sm text-gray-800 font-semibold bg-white/80 p-3 rounded-xl border border-amber-100"
+                    >
+                      <div className="mt-0.5 bg-emerald-100 p-0.5 rounded-full shrink-0">
+                        <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      </div>
+                      <span className="leading-relaxed">{tc}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* HÀNG 3: THÀNH PHẦN - CÁCH DÙNG - BẢO QUẢN */}
+          {infoCardsCount > 0 && (
+            <div className={`grid ${gridColsClass} gap-4 items-stretch`}>
+              {thanhPhan && (
+                <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-2xs space-y-2 flex flex-col">
+                  <h4 className="font-bold text-[#4A2E16] flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#ECA921]"></span>{" "}
+                    Thành phần chính
+                  </h4>
+                  <p className="text-gray-700 leading-relaxed font-medium text-xs sm:text-sm">
+                    {thanhPhan}
+                  </p>
+                </div>
+              )}
+
+              {cachDung && (
+                <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-2xs space-y-2 flex flex-col">
                   <h4 className="font-bold text-[#4A2E16] flex items-center gap-2">
                     <IconFlame className="w-4 h-4 text-[#ECA921]" /> Cách dùng
                   </h4>
-                  <ul className="list-disc list-inside text-gray-700 space-y-1 marker:text-amber-500">
-                    {parseLines(product.cachDung).map((line, i) => (
-                      <li key={i}>{line}</li>
+                  <ul className="list-disc list-inside text-gray-700 space-y-1 marker:text-amber-500 text-xs sm:text-sm">
+                    {parseLines(cachDung).map((line, i) => (
+                      <li key={i} className="leading-relaxed">
+                        {line}
+                      </li>
                     ))}
                   </ul>
                 </div>
+              )}
 
-                <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-xs space-y-2">
+              {baoQuan && (
+                <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-2xs space-y-2 flex flex-col">
                   <h4 className="font-bold text-[#4A2E16] flex items-center gap-2">
                     <IconShieldLock className="w-4 h-4 text-blue-500" /> Bảo
                     quản
                   </h4>
-                  <ul className="list-disc list-inside text-gray-700 space-y-1 marker:text-blue-500">
-                    {parseLines(product.baoQuan).map((line, i) => (
-                      <li key={i}>{line}</li>
+                  <ul className="list-disc list-inside text-gray-700 space-y-1 marker:text-blue-500 text-xs sm:text-sm">
+                    {parseLines(baoQuan).map((line, i) => (
+                      <li key={i} className="leading-relaxed">
+                        {line}
+                      </li>
                     ))}
                   </ul>
                 </div>
-              </div>
-
-              {product.luuY && (
-                <div className="md:col-span-2 bg-red-50/50 border border-red-200 p-4 rounded-2xl flex gap-3 items-start">
-                  <IconAlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                  <div className="text-red-900 font-medium text-sm leading-relaxed">
-                    <span className="font-bold">Lưu ý:</span> {product.luuY}
-                  </div>
-                </div>
               )}
             </div>
-          ) : (
-            <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-xs">
+          )}
+
+          {/* HÀNG 4: LƯU Ý */}
+          {luuY && (
+            <div className="bg-red-50/50 border border-red-200 p-4 rounded-2xl flex gap-3 items-start">
+              <IconAlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+              <div className="text-red-900 font-medium text-sm leading-relaxed">
+                <span className="font-bold">Lưu ý:</span> {luuY}
+              </div>
+            </div>
+          )}
+
+          {/* HÀNG 5: BẢNG THÔNG TIN CHI TIẾT */}
+          {hasB2BTableRows && (
+            <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-2xs">
               <table className="w-full text-left text-xs divide-y divide-gray-200">
                 <thead className="bg-amber-100/40 font-bold text-[#4A2E16]">
                   <tr>
@@ -302,53 +406,66 @@ export default function ProductDetailModal({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
-                  <tr>
-                    <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
-                      Phù hợp món ăn
-                    </td>
-                    <td className="p-3.5">
-                      <div className="flex flex-wrap gap-1.5">
-                        {phuHopMonList.map((mon, idx) => (
-                          <span
-                            key={idx}
-                            className="text-gray-800 font-medium rounded-md text-xs"
-                          >
-                            {mon}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
-                      Quy cách & Cắt hàng
-                    </td>
-                    <td className="p-3.5 text-gray-900 font-medium leading-relaxed">
-                      {product.quyCachCatHang}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
-                      Đặc điểm sản phẩm
-                    </td>
-                    <td className="p-3.5 text-gray-900 font-medium leading-relaxed">
-                      {product.dacDiemSanPham}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
-                      Phân tích thương hiệu
-                    </td>
-                    <td className="p-3.5 text-gray-800 leading-relaxed font-medium">
-                      {product.phanTichThuongHieu}
-                    </td>
-                  </tr>
+                  {phuHopMonList.length > 0 && (
+                    <tr>
+                      <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
+                        Phù hợp món ăn
+                      </td>
+                      <td className="p-3.5">
+                        <div className="flex flex-wrap gap-1.5">
+                          {phuHopMonList.map((mon, idx) => (
+                            <span
+                              key={idx}
+                              className="text-gray-800 font-medium rounded-md text-xs"
+                            >
+                              {mon}
+                              {idx < phuHopMonList.length - 1 ? "," : ""}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {quyCachCatHang && (
+                    <tr>
+                      <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
+                        Quy cách & Cắt hàng
+                      </td>
+                      <td className="p-3.5 text-gray-900 font-medium leading-relaxed">
+                        {quyCachCatHang}
+                      </td>
+                    </tr>
+                  )}
+
+                  {dacDiemSanPham && (
+                    <tr>
+                      <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
+                        Đặc điểm sản phẩm
+                      </td>
+                      <td className="p-3.5 text-gray-900 font-medium leading-relaxed whitespace-pre-line">
+                        {dacDiemSanPham}
+                      </td>
+                    </tr>
+                  )}
+
+                  {phanTichThuongHieu && (
+                    <tr>
+                      <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
+                        Phân tích thương hiệu
+                      </td>
+                      <td className="p-3.5 text-gray-800 leading-relaxed font-medium">
+                        {phanTichThuongHieu}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           )}
         </div>
 
+        {/* FOOTER (Giữ nguyên các nút chức năng của isAdminMode) */}
         <div className="relative bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-between shrink-0">
           {copied && (
             <div className="absolute -top-14 right-6 z-50 bg-gray-900/95 text-white text-xs px-4 py-2.5 rounded-xl shadow-xl border border-amber-400/40 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
