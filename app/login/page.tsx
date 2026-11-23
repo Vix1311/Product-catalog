@@ -75,7 +75,6 @@ export default function LoginPage() {
             </label>
             <input
               type="email"
-              placeholder="VD: admin@gmail.com"
               className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
               value={email}
               onChange={(e) => {

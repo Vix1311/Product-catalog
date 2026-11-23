@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import {
   IconX,
@@ -15,6 +15,7 @@ import {
   IconFlame,
   IconShieldLock,
   IconAlertTriangle,
+  IconLoader2,
 } from "@tabler/icons-react";
 
 export interface ProductDetail {
@@ -67,9 +68,57 @@ export interface ProductDetail {
 interface ModalProps {
   product: ProductDetail | null;
   onClose: () => void;
+  isLoadingDetail?: boolean;
   isAdmin?: boolean;
   onEdit?: (product: ProductDetail) => void;
   onDelete?: (product: ProductDetail) => void;
+}
+
+// Component ảnh có trạng thái "Đang tải ..." (export để dùng chung bên trang Catalog)
+export function ProductImage({
+  src,
+  alt,
+  className = "",
+  loading = "lazy",
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  loading?: "lazy" | "eager";
+}) {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setLoadedSrc(src);
+    }
+  }, [src]);
+
+  const isLoaded = loadedSrc === src;
+
+  return (
+    <div className="relative w-full h-full bg-gray-100">
+      {!isLoaded && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1.5 bg-gray-100 text-gray-500">
+          <IconLoader2 className="w-5 h-5 text-[#ECA921] animate-spin" />
+          <span className="text-xs font-semibold">Đang tải ...</span>
+        </div>
+      )}
+      <img
+        ref={imgRef}
+        src={src}
+        alt={alt}
+        loading={loading}
+        onLoad={() => setLoadedSrc(src)}
+        onError={() => setLoadedSrc(src)}
+        className={`${className} transition-opacity duration-300 ${
+          isLoaded ? "opacity-100" : "opacity-0"
+        }`}
+      />
+    </div>
+  );
 }
 
 const cleanValue = (val?: string | null): string => {
@@ -89,6 +138,7 @@ const cleanValue = (val?: string | null): string => {
 export default function ProductDetailModal({
   product,
   onClose,
+  isLoadingDetail = false,
   isAdmin: propIsAdmin,
   onEdit,
   onDelete,
@@ -188,9 +238,10 @@ export default function ProductDetailModal({
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
     >
+      {/* Giữ cứng chiều cao h-[88vh] để Modal không bị giật nhảy khi dữ liệu chi tiết tải xong */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden border border-amber-100 flex flex-col max-h-[90vh]"
+        className="bg-white w-full max-w-6xl h-[88vh] max-h-[850px] rounded-2xl shadow-2xl overflow-hidden border border-amber-100 flex flex-col"
       >
         {/* HEADER */}
         <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white p-5 flex items-center justify-between border-b border-amber-500/30 shrink-0">
@@ -220,252 +271,263 @@ export default function ProductDetailModal({
           </button>
         </div>
 
-        {/* BODY (Đồng nhất 100% giữa chế độ mặc định và Admin) */}
-        <div className="p-6 overflow-y-auto space-y-5 text-sm text-gray-700">
-          {/* HÀNG 1: ẢNH BÊN TRÁI + THÔNG TIN NHANH BÊN PHẢI */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-            <div className="lg:col-span-5 rounded-2xl overflow-hidden border-2 border-amber-200/80 shadow-sm bg-gray-100 h-56 lg:h-64">
-              <img
-                src={product.imageUrl}
-                alt={product.tenTiengViet}
-                className="w-full h-full object-cover"
-              />
+        {/* BODY */}
+        <div className="flex-1 p-6 overflow-y-auto text-sm text-gray-700 flex flex-col">
+          {isLoadingDetail ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-2.5 text-gray-500">
+              <IconLoader2 className="w-8 h-8 text-[#ECA921] animate-spin" />
+              <p className="text-sm font-semibold">Đang tải ...</p>
             </div>
-
-            <div className="lg:col-span-7 bg-amber-50/40 p-5 rounded-2xl border border-amber-100/80 flex flex-col justify-center space-y-4">
-              {thuongHieuList.length > 0 && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                    <IconWorld className="w-4 h-4 text-[#ECA921]" />
-                    <span>Thương hiệu & Xuất xứ:</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 pl-5">
-                    {thuongHieuList.map((item, idx) => (
-                      <span
-                        key={idx}
-                        className="bg-white border border-amber-200 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-lg"
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
+          ) : (
+            <div className="space-y-5">
+              {/* HÀNG 1: ẢNH BÊN TRÁI + THÔNG TIN NHANH BÊN PHẢI */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                <div className="lg:col-span-5 rounded-2xl overflow-hidden border-2 border-amber-200/80 shadow-sm bg-gray-100 h-56 lg:h-64">
+                  <ProductImage
+                    src={product.imageUrl}
+                    alt={product.tenTiengViet}
+                    loading="eager"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-              )}
 
-              {quyCachThungList.length > 0 && (
-                <div className="space-y-1.5 pt-3 border-t border-amber-200/40">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                    <IconBox className="w-4 h-4 text-[#ECA921]" />
-                    <span>Quy cách thùng / Theo nguồn:</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-5">
-                    {quyCachThungList.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-white/80 border border-amber-200/70 text-xs font-medium text-gray-800 px-2.5 py-1 rounded-md"
-                      >
-                        - {item}
+                <div className="lg:col-span-7 bg-amber-50/40 p-5 rounded-2xl border border-amber-100/80 flex flex-col justify-center space-y-4">
+                  {thuongHieuList.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
+                        <IconWorld className="w-4 h-4 text-[#ECA921]" />
+                        <span>Thương hiệu & Xuất xứ:</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {(mucDoPhoBien || phuHopKenhQuan) && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-amber-200/40">
-                  {mucDoPhoBien && (
-                    <div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 mb-1">
-                        <IconStars className="w-4 h-4 text-[#ECA921]" />
-                        <span>Mức độ phổ biến:</span>
-                      </div>
-                      <span className="inline-block bg-amber-100 text-amber-800 text-xs font-extrabold px-3 py-1 rounded-full border border-amber-300/60 ml-5">
-                        {mucDoPhoBien}
-                      </span>
-                    </div>
-                  )}
-                  {phuHopKenhQuan && (
-                    <div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 mb-1">
-                        <IconBuildingStore className="w-4 h-4 text-[#ECA921]" />
-                        <span>Phù hợp kênh quán:</span>
-                      </div>
-                      <div className="text-xs text-gray-800 font-semibold leading-relaxed ml-5">
-                        {phuHopKenhQuan}
+                      <div className="flex flex-wrap gap-1.5 pl-5">
+                        {thuongHieuList.map((item, idx) => (
+                          <span
+                            key={idx}
+                            className="bg-white border border-amber-200 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-lg"
+                          >
+                            {item}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   )}
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* HÀNG 2: MÔ TẢ SẢN PHẨM & TIÊU CHÍ NỔI BẬT */}
-          {(moTa || tieuChi) && (
-            <div className="bg-amber-50/30 p-5 rounded-2xl border border-amber-100/80 space-y-4">
-              {moTa && (
-                <div className="space-y-2">
-                  <h4 className="text-base font-black text-[#4A2E16] flex items-center gap-2">
-                    <IconInfoCircle className="w-5 h-5 text-[#ECA921]" />
-                    Mô tả sản phẩm
-                  </h4>
-                  <p className="text-gray-800 leading-relaxed font-medium whitespace-pre-line">
-                    {moTa}
-                  </p>
-                </div>
-              )}
-
-              {tieuChi && (
-                <div
-                  className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${
-                    moTa ? "pt-4 border-t border-amber-200/50" : ""
-                  }`}
-                >
-                  {parseLines(tieuChi).map((tc, idx) => (
-                    <div
-                      key={idx}
-                      className="flex gap-2.5 items-start text-xs sm:text-sm text-gray-800 font-semibold bg-white/80 p-3 rounded-xl border border-amber-100"
-                    >
-                      <div className="mt-0.5 bg-emerald-100 p-0.5 rounded-full shrink-0">
-                        <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  {quyCachThungList.length > 0 && (
+                    <div className="space-y-1.5 pt-3 border-t border-amber-200/40">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
+                        <IconBox className="w-4 h-4 text-[#ECA921]" />
+                        <span>Quy cách thùng / Theo nguồn:</span>
                       </div>
-                      <span className="leading-relaxed">{tc}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-5">
+                        {quyCachThungList.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-white/80 border border-amber-200/70 text-xs font-medium text-gray-800 px-2.5 py-1 rounded-md"
+                          >
+                            - {item}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                  )}
 
-          {/* HÀNG 3: THÀNH PHẦN - CÁCH DÙNG - BẢO QUẢN */}
-          {infoCardsCount > 0 && (
-            <div className={`grid ${gridColsClass} gap-4 items-stretch`}>
-              {thanhPhan && (
-                <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-2xs space-y-2 flex flex-col">
-                  <h4 className="font-bold text-[#4A2E16] flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#ECA921]"></span>{" "}
-                    Thành phần chính
-                  </h4>
-                  <p className="text-gray-700 leading-relaxed font-medium text-xs sm:text-sm">
-                    {thanhPhan}
-                  </p>
-                </div>
-              )}
-
-              {cachDung && (
-                <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-2xs space-y-2 flex flex-col">
-                  <h4 className="font-bold text-[#4A2E16] flex items-center gap-2">
-                    <IconFlame className="w-4 h-4 text-[#ECA921]" /> Cách dùng
-                  </h4>
-                  <ul className="list-disc list-inside text-gray-700 space-y-1 marker:text-amber-500 text-xs sm:text-sm">
-                    {parseLines(cachDung).map((line, i) => (
-                      <li key={i} className="leading-relaxed">
-                        {line}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {baoQuan && (
-                <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-2xs space-y-2 flex flex-col">
-                  <h4 className="font-bold text-[#4A2E16] flex items-center gap-2">
-                    <IconShieldLock className="w-4 h-4 text-blue-500" /> Bảo
-                    quản
-                  </h4>
-                  <ul className="list-disc list-inside text-gray-700 space-y-1 marker:text-blue-500 text-xs sm:text-sm">
-                    {parseLines(baoQuan).map((line, i) => (
-                      <li key={i} className="leading-relaxed">
-                        {line}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* HÀNG 4: LƯU Ý */}
-          {luuY && (
-            <div className="bg-red-50/50 border border-red-200 p-4 rounded-2xl flex gap-3 items-start">
-              <IconAlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <div className="text-red-900 font-medium text-sm leading-relaxed">
-                <span className="font-bold">Lưu ý:</span> {luuY}
-              </div>
-            </div>
-          )}
-
-          {/* HÀNG 5: BẢNG THÔNG TIN CHI TIẾT */}
-          {hasB2BTableRows && (
-            <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-2xs">
-              <table className="w-full text-left text-xs divide-y divide-gray-200">
-                <thead className="bg-amber-100/40 font-bold text-[#4A2E16]">
-                  <tr>
-                    <th className="p-3.5 w-1/4">Hạng mục</th>
-                    <th className="p-3.5">Thông tin chi tiết</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {phuHopMonList.length > 0 && (
-                    <tr>
-                      <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
-                        Phù hợp món ăn
-                      </td>
-                      <td className="p-3.5">
-                        <div className="flex flex-wrap gap-1.5">
-                          {phuHopMonList.map((mon, idx) => (
-                            <span
-                              key={idx}
-                              className="text-gray-800 font-medium rounded-md text-xs"
-                            >
-                              {mon}
-                              {idx < phuHopMonList.length - 1 ? "," : ""}
-                            </span>
-                          ))}
+                  {(mucDoPhoBien || phuHopKenhQuan) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-amber-200/40">
+                      {mucDoPhoBien && (
+                        <div>
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 mb-1">
+                            <IconStars className="w-4 h-4 text-[#ECA921]" />
+                            <span>Mức độ phổ biến:</span>
+                          </div>
+                          <span className="inline-block bg-amber-100 text-amber-800 text-xs font-extrabold px-3 py-1 rounded-full border border-amber-300/60 ml-5">
+                            {mucDoPhoBien}
+                          </span>
                         </div>
-                      </td>
-                    </tr>
+                      )}
+                      {phuHopKenhQuan && (
+                        <div>
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 mb-1">
+                            <IconBuildingStore className="w-4 h-4 text-[#ECA921]" />
+                            <span>Phù hợp kênh quán:</span>
+                          </div>
+                          <div className="text-xs text-gray-800 font-semibold leading-relaxed ml-5">
+                            {phuHopKenhQuan}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* HÀNG 2: MÔ TẢ SẢN PHẨM & TIÊU CHÍ NỔI BẬT */}
+              {(moTa || tieuChi) && (
+                <div className="bg-amber-50/30 p-5 rounded-2xl border border-amber-100/80 space-y-4">
+                  {moTa && (
+                    <div className="space-y-2">
+                      <h4 className="text-base font-black text-[#4A2E16] flex items-center gap-2">
+                        <IconInfoCircle className="w-5 h-5 text-[#ECA921]" />
+                        Mô tả sản phẩm
+                      </h4>
+                      <p className="text-gray-800 leading-relaxed font-medium whitespace-pre-line">
+                        {moTa}
+                      </p>
+                    </div>
                   )}
 
-                  {quyCachCatHang && (
-                    <tr>
-                      <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
-                        Quy cách & Cắt hàng
-                      </td>
-                      <td className="p-3.5 text-gray-900 font-medium leading-relaxed">
-                        {quyCachCatHang}
-                      </td>
-                    </tr>
+                  {tieuChi && (
+                    <div
+                      className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${
+                        moTa ? "pt-4 border-t border-amber-200/50" : ""
+                      }`}
+                    >
+                      {parseLines(tieuChi).map((tc, idx) => (
+                        <div
+                          key={idx}
+                          className="flex gap-2.5 items-start text-xs sm:text-sm text-gray-800 font-semibold bg-white/80 p-3 rounded-xl border border-amber-100"
+                        >
+                          <div className="mt-0.5 bg-emerald-100 p-0.5 rounded-full shrink-0">
+                            <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          </div>
+                          <span className="leading-relaxed">{tc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* HÀNG 3: THÀNH PHẦN - CÁCH DÙNG - BẢO QUẢN */}
+              {infoCardsCount > 0 && (
+                <div className={`grid ${gridColsClass} gap-4 items-stretch`}>
+                  {thanhPhan && (
+                    <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-2xs space-y-2 flex flex-col">
+                      <h4 className="font-bold text-[#4A2E16] flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[#ECA921]"></span>{" "}
+                        Thành phần chính
+                      </h4>
+                      <p className="text-gray-700 leading-relaxed font-medium text-xs sm:text-sm">
+                        {thanhPhan}
+                      </p>
+                    </div>
                   )}
 
-                  {dacDiemSanPham && (
-                    <tr>
-                      <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
-                        Đặc điểm sản phẩm
-                      </td>
-                      <td className="p-3.5 text-gray-900 font-medium leading-relaxed whitespace-pre-line">
-                        {dacDiemSanPham}
-                      </td>
-                    </tr>
+                  {cachDung && (
+                    <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-2xs space-y-2 flex flex-col">
+                      <h4 className="font-bold text-[#4A2E16] flex items-center gap-2">
+                        <IconFlame className="w-4 h-4 text-[#ECA921]" /> Cách
+                        dùng
+                      </h4>
+                      <ul className="list-disc list-inside text-gray-700 space-y-1 marker:text-amber-500 text-xs sm:text-sm">
+                        {parseLines(cachDung).map((line, i) => (
+                          <li key={i} className="leading-relaxed">
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
 
-                  {phanTichThuongHieu && (
-                    <tr>
-                      <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
-                        Phân tích thương hiệu
-                      </td>
-                      <td className="p-3.5 text-gray-800 leading-relaxed font-medium">
-                        {phanTichThuongHieu}
-                      </td>
-                    </tr>
+                  {baoQuan && (
+                    <div className="bg-white border border-gray-200 p-4 rounded-2xl shadow-2xs space-y-2 flex flex-col">
+                      <h4 className="font-bold text-[#4A2E16] flex items-center gap-2">
+                        <IconShieldLock className="w-4 h-4 text-blue-500" /> Bảo
+                        quản
+                      </h4>
+                      <ul className="list-disc list-inside text-gray-700 space-y-1 marker:text-blue-500 text-xs sm:text-sm">
+                        {parseLines(baoQuan).map((line, i) => (
+                          <li key={i} className="leading-relaxed">
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
-                </tbody>
-              </table>
+                </div>
+              )}
+
+              {/* HÀNG 4: LƯU Ý */}
+              {luuY && (
+                <div className="bg-red-50/50 border border-red-200 p-4 rounded-2xl flex gap-3 items-start">
+                  <IconAlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                  <div className="text-red-900 font-medium text-sm leading-relaxed">
+                    <span className="font-bold">Lưu ý:</span> {luuY}
+                  </div>
+                </div>
+              )}
+
+              {/* HÀNG 5: BẢNG THÔNG TIN CHI TIẾT */}
+              {hasB2BTableRows && (
+                <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-2xs">
+                  <table className="w-full text-left text-xs divide-y divide-gray-200">
+                    <thead className="bg-amber-100/40 font-bold text-[#4A2E16]">
+                      <tr>
+                        <th className="p-3.5 w-1/4">Hạng mục</th>
+                        <th className="p-3.5">Thông tin chi tiết</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {phuHopMonList.length > 0 && (
+                        <tr>
+                          <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
+                            Phù hợp món ăn
+                          </td>
+                          <td className="p-3.5">
+                            <div className="flex flex-wrap gap-1.5">
+                              {phuHopMonList.map((mon, idx) => (
+                                <span
+                                  key={idx}
+                                  className="text-gray-800 font-medium rounded-md text-xs"
+                                >
+                                  {mon}
+                                  {idx < phuHopMonList.length - 1 ? "," : ""}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+
+                      {quyCachCatHang && (
+                        <tr>
+                          <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
+                            Quy cách & Cắt hàng
+                          </td>
+                          <td className="p-3.5 text-gray-900 font-medium leading-relaxed">
+                            {quyCachCatHang}
+                          </td>
+                        </tr>
+                      )}
+
+                      {dacDiemSanPham && (
+                        <tr>
+                          <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
+                            Đặc điểm sản phẩm
+                          </td>
+                          <td className="p-3.5 text-gray-900 font-medium leading-relaxed whitespace-pre-line">
+                            {dacDiemSanPham}
+                          </td>
+                        </tr>
+                      )}
+
+                      {phanTichThuongHieu && (
+                        <tr>
+                          <td className="p-3.5 font-bold text-gray-700 bg-amber-50/20">
+                            Phân tích thương hiệu
+                          </td>
+                          <td className="p-3.5 text-gray-800 leading-relaxed font-medium">
+                            {phanTichThuongHieu}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* FOOTER (Giữ nguyên các nút chức năng của isAdminMode) */}
+        {/* FOOTER */}
         <div className="relative bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-between shrink-0">
           {copied && (
             <div className="absolute -top-14 right-6 z-50 bg-gray-900/95 text-white text-xs px-4 py-2.5 rounded-xl shadow-xl border border-amber-400/40 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">

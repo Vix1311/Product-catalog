@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import ProductDetailModal, {
   ProductDetail,
+  ProductImage,
 } from "@/components/ProductCatalogDetailModal";
 import {
   IconSearch,
@@ -18,25 +19,60 @@ import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "../services/auth.service";
 import Footer from "@/components/Footer";
 
-// Interface map theo đúng response API từ Postman
+// --- TYPES CHO API CATALOG CARD (NHẸ) ---
+interface ApiCatalogBrand {
+  name: string;
+  origin: string | null;
+}
+
+interface ApiCatalogVariant {
+  brand: ApiCatalogBrand;
+}
+
+interface ApiCatalogProduct {
+  id: string;
+  name: string;
+  englishName: string | null;
+  category: string;
+  subCategory: string | null;
+  imageUrl: string | null;
+  suitableDishes: string | null;
+  characteristics: string | null;
+  description: string | null;
+  variants: ApiCatalogVariant[];
+}
+
+interface CatalogPaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+interface CatalogApiResponse {
+  data: ApiCatalogProduct[];
+  meta: CatalogPaginationMeta;
+}
+
+// --- TYPES CHO API CHI TIẾT (GET /api/products/:id) ---
 interface ApiBrand {
   id: string;
   name: string;
-  origin: string;
+  origin: string | null;
 }
 
 interface ApiVariant {
   id: string;
   sku: string | null;
   unit: string | null;
-  packaging: string;
-  brandNote: string;
+  packaging: string | null;
+  brandNote: string | null;
   productId: string;
   brandId: string;
   brand: ApiBrand;
 }
 
-interface ApiProduct {
+interface ApiProductDetail {
   id: string;
   name: string;
   englishName: string | null;
@@ -50,7 +86,6 @@ interface ApiProduct {
   productSpec: string | null;
   marketPopularity: string | null;
   suitableChannels: string | null;
-  // --- 6 TRƯỜNG MỚI TỪ DATABASE ---
   description: string | null;
   ingredients: string | null;
   usageInstructions: string | null;
@@ -66,6 +101,8 @@ interface CatalogProduct extends ProductDetail {
 }
 
 const ITEMS_PER_PAGE = 12;
+const DEFAULT_PRODUCT_IMAGE =
+  "https://images.unsplash.com/photo-1603048588665-791ca8aea617?q=80&w=500";
 
 const categoryTitleMap: Record<string, string> = {
   "thit-nhap-khau": "THỊT NHẬP KHẨU",
@@ -91,8 +128,13 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://product-catalog-be-henna.vercel.app";
 
-const fetcher = (url: string) =>
-  fetch(`${API_BASE_URL}${url}`).then((res) => res.json());
+const fetcher = async (url: string) => {
+  const res = await fetch(`${API_BASE_URL}${url}`);
+  if (!res.ok) {
+    throw new Error(`Lỗi tải dữ liệu (${res.status})`);
+  }
+  return res.json();
+};
 
 // Helper tạo dãy số trang có dấu "..." khi danh sách dài
 function getPageNumbers(current: number, total: number): (number | "...")[] {
@@ -106,6 +148,20 @@ function getPageNumbers(current: number, total: number): (number | "...")[] {
     return [1, "...", total - 3, total - 2, total - 1, total];
   }
   return [1, "...", current - 1, current, current + 1, "...", total];
+}
+
+function formatBrandOrigins(
+  variants?: { brand?: { name?: string; origin?: string | null } }[],
+) {
+  return (
+    variants
+      ?.map(
+        (v) =>
+          `${v.brand?.name || ""}${v.brand?.origin ? ` (${v.brand.origin})` : ""}`,
+      )
+      .filter(Boolean)
+      .join("; ") || ""
+  );
 }
 
 function CatalogContent() {
@@ -148,16 +204,26 @@ function CatalogContent() {
   // Điều kiện hiển thị cụm Filter Loại Thịt
   const showProteinFilter = groupSlug === "thit-nhap-khau";
 
-  const [selectedProduct, setSelectedProduct] = useState<ProductDetail | null>(
-    null,
-  );
+  const [selectedCard, setSelectedCard] = useState<CatalogProduct | null>(null);
   const [searchTerm, setSearchTerm] = useState(searchFromUrl);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchFromUrl.trim());
   const [selectedProtein, setSelectedProtein] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Đồng bộ từ khóa từ URL (không chờ debounce khi đi từ thanh search ngoài vào)
   useEffect(() => {
     setSearchTerm(searchFromUrl);
+    setDebouncedSearch(searchFromUrl.trim());
   }, [searchFromUrl]);
+
+  // Debounce tìm kiếm 350ms tránh bắn API liên tục khi đang gõ
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Đồng bộ tab protein khi subCategory thay đổi trên URL
   useEffect(() => {
@@ -174,94 +240,138 @@ function CatalogContent() {
   // Reset về trang 1 mỗi khi đổi nhóm, bộ lọc thịt hoặc từ khóa tìm kiếm
   useEffect(() => {
     setCurrentPage(1);
-  }, [groupSlug, selectedProtein, searchTerm]);
+  }, [groupSlug, selectedProtein, debouncedSearch]);
 
-  // 3. Tạo URL động để call API qua SWR
+  // 3. Tạo URL động gọi API Catalog Card có phân trang phía server
   const apiUrl = useMemo(() => {
     const params = new URLSearchParams();
     if (groupSlug) params.append("category", groupSlug);
     if (showProteinFilter && selectedProtein !== "ALL") {
       params.append("subCategory", selectedProtein);
     }
-    if (searchTerm.trim()) params.append("search", searchTerm.trim());
+    if (debouncedSearch) params.append("search", debouncedSearch);
+    params.append("page", String(currentPage));
+    params.append("limit", String(ITEMS_PER_PAGE));
 
-    return `/api/products?${params.toString()}`;
-  }, [groupSlug, selectedProtein, searchTerm, showProteinFilter]);
+    return `/api/products/catalog?${params.toString()}`;
+  }, [
+    groupSlug,
+    selectedProtein,
+    debouncedSearch,
+    showProteinFilter,
+    currentPage,
+  ]);
 
   const {
-    data: rawProducts = [],
+    data: catalogResponse,
     error,
     isLoading,
-  } = useSWR<ApiProduct[]>(apiUrl, fetcher);
+    isValidating,
+  } = useSWR<CatalogApiResponse>(apiUrl, fetcher, {
+    keepPreviousData: true,
+    revalidateOnFocus: false,
+  });
 
-  // 4. Map dữ liệu từ API sang dạng UI (Đã bổ sung đầy đủ 6 trường mới)
+  // 4. Lazy-load toàn bộ chi tiết sản phẩm chỉ khi người dùng mở Modal (có cache SWR)
+  const { data: detailData, error: detailError } = useSWR<ApiProductDetail>(
+    selectedCard ? `/api/products/${selectedCard.id}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+    },
+  );
+
+  const isLoadingDetail = Boolean(
+    selectedCard &&
+    !detailError &&
+    (!detailData || detailData.id !== selectedCard.id),
+  );
+
+  // 5. Thông số phân trang từ server
+  const totalItems = catalogResponse?.meta?.total ?? 0;
+  const totalPages = Math.max(catalogResponse?.meta?.totalPages ?? 1, 1);
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  // 6. Map dữ liệu Card gọn nhẹ sang dạng UI
   const products: CatalogProduct[] = useMemo(() => {
-    if (!Array.isArray(rawProducts)) return [];
+    const rawItems = catalogResponse?.data;
+    if (!Array.isArray(rawItems)) return [];
 
-    return rawProducts.map((p, index) => {
-      const brandOrigins = p.variants
-        ?.map(
-          (v?: any) =>
-            `${v.brand?.name || ""}${v.brand?.origin ? ` (${v.brand.origin})` : ""}`,
-        )
-        .filter(Boolean)
-        .join("; ");
+    const offset = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
 
-      const packagings = p.variants
-        ?.map((v?: any) => v.packaging)
-        .filter(Boolean)
-        .join("; ");
+    return rawItems.map((p, index) => ({
+      id: p.id,
+      stt: offset + index + 1,
+      tenTiengViet: p.name || "",
+      tenTiengAnh: p.englishName || "",
+      nhom: (p.subCategory || "KHÁC").toUpperCase(),
+      categorySlug: p.category || groupSlug,
+      subCategorySlug: p.subCategory?.toLowerCase() || "",
+      phuHopMon: p.suitableDishes || "",
+      dacDiemSanPham: p.characteristics || "",
+      moTa: p.description || "",
+      thuongHieuXuatXu: formatBrandOrigins(p.variants),
+      // Các trường chi tiết để trống ở mức Card, sẽ tự nạp khi mở Modal
+      quyCachCatHang: "",
+      phanTichThuongHieu: "",
+      mucDoPhoBien: "",
+      phuHopKenhQuan: "",
+      quyCachThung: "",
+      thanhPhan: "",
+      cachDung: "",
+      baoQuan: "",
+      luuY: "",
+      tieuChi: "",
+      imageUrl: p.imageUrl || DEFAULT_PRODUCT_IMAGE,
+    }));
+  }, [catalogResponse?.data, groupSlug, safeCurrentPage]);
 
-      const brandNotes = p.variants
-        ?.map((v?: any) => v.brandNote)
-        .filter(Boolean)
-        .join("; ");
+  // 7. Gộp dữ liệu đầy đủ cho Modal ngay khi API /api/products/:id trả về
+  const selectedProduct: ProductDetail | null = useMemo(() => {
+    if (!selectedCard) return null;
+    if (!detailData || detailData.id !== selectedCard.id) {
+      return selectedCard;
+    }
 
-      return {
-        id: p.id,
-        stt: index + 1,
-        tenTiengViet: p.name || "",
-        tenTiengAnh: p.englishName || "",
-        nhom: (p.subCategory || "KHÁC").toUpperCase(),
-        categorySlug: p.category || groupSlug,
-        subCategorySlug: p.subCategory?.toLowerCase() || "",
-        // Không gán cứng "Chưa cập nhật" để Modal tự động ẩn các trường trống
-        phuHopMon: p.suitableDishes || "",
-        quyCachCatHang: p.productSpec || "",
-        phanTichThuongHieu: brandNotes || "",
-        mucDoPhoBien: p.marketPopularity || "",
-        dacDiemSanPham: p.characteristics || "",
-        phuHopKenhQuan: p.suitableChannels || "",
-        thuongHieuXuatXu: brandOrigins || "",
-        quyCachThung: packagings || "",
-        // --- TRUYỀN 6 TRƯỜNG MỚI XUỐNG MODAL ---
-        moTa: p.description || "",
-        thanhPhan: p.ingredients || "",
-        cachDung: p.usageInstructions || "",
-        baoQuan: p.storageInstructions || "",
-        luuY: p.warnings || "",
-        tieuChi: p.highlights || "",
-        imageUrl:
-          p.imageUrl ||
-          "https://images.unsplash.com/photo-1603048588665-791ca8aea617?q=80&w=500",
-      };
-    });
-  }, [rawProducts, groupSlug]);
+    const packagings = detailData.variants
+      ?.map((v) => v.packaging)
+      .filter(Boolean)
+      .join("; ");
 
-  // 5. Tính toán dữ liệu phân trang
-  const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE);
-  const safeCurrentPage = Math.min(currentPage, Math.max(totalPages, 1));
+    const brandNotes = detailData.variants
+      ?.map((v) => v.brandNote)
+      .filter(Boolean)
+      .join("; ");
 
-  const paginatedProducts = useMemo(() => {
-    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
-    return products.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [products, safeCurrentPage]);
+    return {
+      id: detailData.id,
+      stt: selectedCard.stt,
+      tenTiengViet: detailData.name || "",
+      tenTiengAnh: detailData.englishName || "",
+      nhom: (detailData.subCategory || "KHÁC").toUpperCase(),
+      phuHopMon: detailData.suitableDishes || "",
+      quyCachCatHang: detailData.productSpec || "",
+      phanTichThuongHieu: brandNotes || "",
+      mucDoPhoBien: detailData.marketPopularity || "",
+      dacDiemSanPham: detailData.characteristics || "",
+      phuHopKenhQuan: detailData.suitableChannels || "",
+      thuongHieuXuatXu: formatBrandOrigins(detailData.variants),
+      quyCachThung: packagings || "",
+      moTa: detailData.description || "",
+      thanhPhan: detailData.ingredients || "",
+      cachDung: detailData.usageInstructions || "",
+      baoQuan: detailData.storageInstructions || "",
+      luuY: detailData.warnings || "",
+      tieuChi: detailData.highlights || "",
+      imageUrl: detailData.imageUrl || DEFAULT_PRODUCT_IMAGE,
+    };
+  }, [selectedCard, detailData]);
 
   const startItem =
-    products.length === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
-  const endItem = Math.min(safeCurrentPage * ITEMS_PER_PAGE, products.length);
+    totalItems === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endItem = Math.min(safeCurrentPage * ITEMS_PER_PAGE, totalItems);
 
-  const handlePageChange = (page: number, shouldScroll = false) => {console.log("PAGE CHANGE:", { page, shouldScroll, el: listTopRef.current });
+  const handlePageChange = (page: number, shouldScroll = false) => {
     if (page < 1 || page > totalPages || page === safeCurrentPage) return;
     setCurrentPage(page);
     if (shouldScroll) {
@@ -291,6 +401,7 @@ function CatalogContent() {
   const handleResetFilters = () => {
     setSelectedProtein("ALL");
     setSearchTerm("");
+    setDebouncedSearch("");
     setCurrentPage(1);
     router.push(`/catalog?group=${groupSlug}`);
   };
@@ -363,15 +474,15 @@ function CatalogContent() {
               <div className="text-xs text-gray-500 font-semibold whitespace-nowrap hidden sm:block">
                 Hiển thị{" "}
                 <strong className="text-[#ECA921] font-bold text-sm">
-                  {products.length > 0 ? `${startItem}–${endItem}` : 0}
+                  {totalItems > 0 ? `${startItem}–${endItem}` : 0}
                 </strong>{" "}
-                / {products.length} mặt hàng
+                / {totalItems} mặt hàng
               </div>
             </div>
           </div>
 
           {/* TRẠNG THÁI LOADING / LỖI / DANH SÁCH SẢN PHẨM */}
-          {isLoading ? (
+          {isLoading && !catalogResponse ? (
             <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-amber-100 shadow-2xs">
               <IconLoader2 className="w-8 h-8 text-[#ECA921] animate-spin mb-2" />
               <p className="text-gray-500 text-sm font-semibold">
@@ -390,26 +501,29 @@ function CatalogContent() {
                 Thử lại
               </button>
             </div>
-          ) : paginatedProducts.length > 0 ? (
+          ) : products.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {paginatedProducts.map((product) => (
+              <div
+                className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity duration-200`}
+              >
+                {products.map((product) => (
                   <div
                     key={product.id}
-                    onClick={() => setSelectedProduct(product)}
+                    onClick={() => setSelectedCard(product)}
                     className="group bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col justify-between"
                   >
                     <div>
                       <div className="relative h-52 overflow-hidden bg-gray-100">
-                        <img
+                        <ProductImage
                           src={product.imageUrl}
                           alt={product.tenTiengViet}
+                          loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
-                        <div className="absolute top-3 left-3 bg-gray-900/80 text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-xs">
+                        <div className="absolute top-3 left-3 z-20 bg-gray-900/80 text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-xs">
                           STT #{product.stt}
                         </div>
-                        <div className="absolute top-3 right-3 bg-[#ECA921] text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-xs">
+                        <div className="absolute top-3 right-3 z-20 bg-[#ECA921] text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-xs">
                           {product.nhom}
                         </div>
                       </div>
@@ -479,7 +593,7 @@ function CatalogContent() {
                       {safeCurrentPage}
                     </strong>{" "}
                     / <strong className="text-[#4A2E16]">{totalPages}</strong>{" "}
-                    (Tổng {products.length} mặt hàng)
+                    (Tổng {totalItems} mặt hàng)
                   </p>
 
                   <div className="flex items-center gap-1.5">
@@ -554,7 +668,8 @@ function CatalogContent() {
           {/* MODAL CHI TIẾT */}
           <ProductDetailModal
             product={selectedProduct}
-            onClose={() => setSelectedProduct(null)}
+            isLoadingDetail={isLoadingDetail}
+            onClose={() => setSelectedCard(null)}
           />
         </div>
       </div>
