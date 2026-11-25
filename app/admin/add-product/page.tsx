@@ -21,6 +21,7 @@ import Footer from "@/components/Footer";
 import StickyHeader from "@/components/StickyHeader";
 import { logoutApi } from "@/app/services/auth.service";
 import NotFoundPage from "@/app/not-found";
+import ExcelImportModal from "@/components/ExcelImportModal";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
@@ -145,7 +146,7 @@ export default function AddProductPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const excelInputRef = useRef<HTMLInputElement | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
   const [isUploadingExcel, setIsUploadingExcel] = useState<boolean>(false);
 
   const [searchBrand, setSearchBrand] = useState("");
@@ -240,10 +241,7 @@ export default function AddProductPage() {
     }
   };
 
-  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleExcelUpload = async (file: File) => {
     const formDataExcel = new FormData();
     formDataExcel.append("file", file);
 
@@ -271,9 +269,9 @@ export default function AddProductPage() {
       router.push("/admin");
     } catch (err: any) {
       toast.error(`Lỗi Import Excel: ${err.message}`);
+      throw err;
     } finally {
       setIsUploadingExcel(false);
-      if (excelInputRef.current) excelInputRef.current.value = "";
     }
   };
 
@@ -389,17 +387,10 @@ export default function AddProductPage() {
                 <IconArrowLeft className="w-4 h-4" /> Hủy bỏ
               </button>
 
-              <input
-                ref={excelInputRef}
-                type="file"
-                accept=".xlsx, .xls"
-                onChange={handleExcelUpload}
-                className="hidden"
-              />
               <button
                 type="button"
                 disabled={isUploadingExcel || isSubmitting}
-                onClick={() => excelInputRef.current?.click()}
+                onClick={() => setIsImportModalOpen(true)}
                 className="cursor-pointer px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold text-xs shadow-lg transition-all flex items-center gap-2"
               >
                 {isUploadingExcel ? (
@@ -900,6 +891,12 @@ export default function AddProductPage() {
             </div>
           </form>
         </main>
+        <ExcelImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          activeCategorySlug={formMode === "rtc" ? "rtc" : undefined}
+          onImportFile={handleExcelUpload}
+        />
         <Footer />
       </div>
     </div>

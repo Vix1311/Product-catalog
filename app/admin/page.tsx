@@ -586,6 +586,7 @@ function AdminCatalogContent() {
       toast.error(`Lỗi khi xóa: ${err.message}`);
     }
   };
+  
 
   if (isCheckingAuth) {
     return <NotFoundPage />;
