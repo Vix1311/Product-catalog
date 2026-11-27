@@ -518,7 +518,7 @@ function CatalogContent() {
                           src={product.imageUrl}
                           alt={product.tenTiengViet}
                           loading="lazy"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                         />
                         <div className="absolute top-3 left-3 z-20 bg-gray-900/80 text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-xs">
                           STT #{product.stt}

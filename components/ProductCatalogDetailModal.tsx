@@ -80,11 +80,13 @@ export function ProductImage({
   alt,
   className = "",
   loading = "lazy",
+  blurBackdrop = true,
 }: {
   src: string;
   alt: string;
   className?: string;
   loading?: "lazy" | "eager";
+  blurBackdrop?: boolean;
 }) {
   const imgRef = useRef<HTMLImageElement>(null);
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
@@ -99,13 +101,28 @@ export function ProductImage({
   const isLoaded = loadedSrc === src;
 
   return (
-    <div className="relative w-full h-full bg-gray-100">
+    <div className="relative w-full h-full overflow-hidden bg-white">
       {!isLoaded && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1.5 bg-gray-100 text-gray-500">
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1.5 bg-gray-100 text-gray-500">
           <IconLoader2 className="w-5 h-5 text-[#ECA921] animate-spin" />
           <span className="text-xs font-semibold">Đang tải ...</span>
         </div>
       )}
+
+      {/* Lớp nền mờ tự lấy theo màu ảnh gốc để lấp khoảng trống hai bên */}
+      {blurBackdrop && (
+        <img
+          src={src}
+          alt=""
+          aria-hidden="true"
+          loading={loading}
+          className={`absolute inset-0 w-full h-full object-cover blur-xl scale-110 pointer-events-none transition-opacity duration-300 ${
+            isLoaded ? "opacity-45" : "opacity-0"
+          }`}
+        />
+      )}
+
+      {/* Ảnh chính luôn hiển thị đầy đủ 100%, không bị cắt */}
       <img
         ref={imgRef}
         src={src}
@@ -113,9 +130,9 @@ export function ProductImage({
         loading={loading}
         onLoad={() => setLoadedSrc(src)}
         onError={() => setLoadedSrc(src)}
-        className={`${className} transition-opacity duration-300 ${
+        className={`relative z-10 w-full h-full object-contain transition-opacity duration-300 ${
           isLoaded ? "opacity-100" : "opacity-0"
-        }`}
+        } ${className}`}
       />
     </div>
   );
@@ -282,12 +299,11 @@ export default function ProductDetailModal({
             <div className="space-y-5">
               {/* HÀNG 1: ẢNH BÊN TRÁI + THÔNG TIN NHANH BÊN PHẢI */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-                <div className="lg:col-span-5 rounded-2xl overflow-hidden border-2 border-amber-200/80 shadow-sm bg-gray-100 h-56 lg:h-64">
+                <div className="lg:col-span-5 rounded-2xl overflow-hidden border-2 border-amber-200/80 shadow-sm bg-white h-56 lg:h-64">
                   <ProductImage
                     src={product.imageUrl}
                     alt={product.tenTiengViet}
                     loading="eager"
-                    className="w-full h-full object-cover"
                   />
                 </div>
 

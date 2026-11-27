@@ -6,6 +6,7 @@ import useSWR from "swr";
 import toast from "react-hot-toast";
 import ProductDetailModal, {
   ProductDetail,
+  ProductImage,
 } from "@/components/ProductCatalogDetailModal";
 import {
   IconSearch,
@@ -586,7 +587,6 @@ function AdminCatalogContent() {
       toast.error(`Lỗi khi xóa: ${err.message}`);
     }
   };
-  
 
   if (isCheckingAuth) {
     return <NotFoundPage />;
@@ -657,6 +657,7 @@ function AdminCatalogContent() {
                 </>
               )}
             </div>
+
             {/* HÀNG CÔNG CỤ CHÍNH */}
             <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
@@ -835,7 +836,8 @@ function AdminCatalogContent() {
                   / {products.length} mặt hàng
                 </div>
               </div>
-            </div>{" "}
+            </div>
+
             {totalPages > 1 && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-5 pt-4 border-t border-amber-100/80">
                 <p className="text-xs text-gray-500 font-medium tabular-nums">
@@ -945,17 +947,18 @@ function AdminCatalogContent() {
                         className="group bg-white rounded-2xl border border-amber-100 overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col justify-between"
                       >
                         <div>
-                          <div className="relative h-52 overflow-hidden bg-gray-100">
-                            <img
+                          <div className="relative h-52 overflow-hidden bg-white">
+                            <ProductImage
                               src={product.imageUrl}
                               alt={product.tenTiengViet}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              loading="lazy"
+                              className="group-hover:scale-105 transition-transform duration-500"
                             />
-                            <div className="absolute top-3 left-3 bg-gray-900/80 text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-xs">
+                            <div className="absolute top-3 left-3 z-20 bg-gray-900/80 text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-xs">
                               STT #{product.stt}
                             </div>
 
-                            <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                            <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
                               {!product.hasRealImage && (
                                 <div
                                   title="Sản phẩm này chưa có hình ảnh!"
@@ -1072,13 +1075,15 @@ function AdminCatalogContent() {
                               </td>
 
                               <td className="py-3 px-4">
-                                <div className="relative w-14 h-14 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                                <div className="relative w-14 h-14 rounded-xl bg-white border border-gray-200 flex items-center justify-center shrink-0">
                                   {product.hasRealImage ? (
-                                    <img
-                                      src={product.imageUrl}
-                                      alt={product.tenTiengViet}
-                                      className="w-full h-full object-cover rounded-xl"
-                                    />
+                                    <div className="w-full h-full rounded-xl overflow-hidden">
+                                      <ProductImage
+                                        src={product.imageUrl}
+                                        alt={product.tenTiengViet}
+                                        loading="lazy"
+                                      />
+                                    </div>
                                   ) : (
                                     <div className="flex flex-col items-center justify-center text-red-400">
                                       <IconPhotoOff className="w-5 h-5" />
@@ -1091,7 +1096,7 @@ function AdminCatalogContent() {
                                   {!product.hasRealImage && (
                                     <span
                                       title="Sản phẩm chưa có hình ảnh!"
-                                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center shadow-md animate-pulse"
+                                      className="absolute -top-1.5 -right-1.5 z-20 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center shadow-md animate-pulse"
                                     >
                                       <IconAlertCircle className="w-3.5 h-3.5 stroke-[2.5]" />
                                     </span>
@@ -1399,15 +1404,24 @@ function AdminCatalogContent() {
                     </div>
 
                     {formData.imageUrl && (
-                      <div className="pt-2 flex items-center gap-3">
-                        <img
-                          src={formData.imageUrl}
-                          alt="Preview"
-                          className="w-16 h-16 rounded-xl object-cover border border-amber-200"
-                        />
-                        <span className="text-[11px] text-emerald-600 font-bold">
-                          ✓ Đã sẵn sàng hiển thị
-                        </span>
+                      <div className="pt-3 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <div className="w-full sm:w-56 h-36 rounded-2xl overflow-hidden border-2 border-amber-200/80 shadow-xs bg-white shrink-0">
+                          <ProductImage
+                            src={formData.imageUrl}
+                            alt={formData.name || "Preview"}
+                            loading="eager"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-bold">
+                            <IconCheck className="w-4 h-4 stroke-[2.5]" />
+                            Đã sẵn sàng hiển thị
+                          </span>
+                          <p className="text-[11px] text-gray-500 leading-relaxed">
+                            Ảnh xem trước hiển thị nguyên khung giống trang
+                            Catalog và Modal chi tiết.
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>

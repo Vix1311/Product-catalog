@@ -35,7 +35,7 @@ const clientNavLinks = [
   },
   {
     name: "ODM/OEM",
-    href: "/catalog?group=odm-oem",
+    href: "/odm-oem",
     hasDropdown: false,
   },
   {
