@@ -16,6 +16,9 @@ const INITIAL_STATE: OemInquiryPayload = {
   note: "",
 };
 
+const INPUT_CLASS =
+  "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base sm:px-4 sm:text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20";
+
 export function OemInquiryForm() {
   const [formData, setFormData] = useState<OemInquiryPayload>(INITIAL_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,7 +31,6 @@ export function OemInquiryForm() {
     setErrorMessage(null);
 
     try {
-      // Đổi NEXT_PUBLIC_API_URL trỏ về NestJS backend của Khánh An Foods
       const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
       const response = await fetch(`${apiUrl}/oem-inquiries`, {
         method: "POST",
@@ -44,7 +46,7 @@ export function OemInquiryForm() {
       setFormData(INITIAL_STATE);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Đã có lỗi xảy ra."
+        error instanceof Error ? error.message : "Đã có lỗi xảy ra.",
       );
     } finally {
       setIsSubmitting(false);
@@ -54,42 +56,44 @@ export function OemInquiryForm() {
   return (
     <section
       id="oem-inquiry-form"
-      className="scroll-mt-20 bg-amber-50/60 py-20 border-t border-amber-100"
+      className="scroll-mt-16 border-t border-amber-100 bg-amber-50/60 py-12 sm:scroll-mt-20 sm:py-20"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-12 lg:grid-cols-12">
+        <div className="grid gap-8 lg:grid-cols-12 lg:gap-12">
           {/* Left Info Column */}
           <div className="lg:col-span-5">
-            <span className="text-sm font-semibold uppercase tracking-wider text-amber-600">
+            <span className="text-xs font-semibold uppercase tracking-wider text-amber-600 sm:text-sm">
               Liên hệ bộ phận B2B & R&D
             </span>
-            <h2 className="mt-2 text-2xl font-bold text-slate-900 sm:text-4xl">
+            <h2 className="mt-1.5 text-2xl font-bold text-slate-900 sm:mt-2 sm:text-4xl">
               Gửi yêu cầu tư vấn & nhận báo giá
             </h2>
-            <p className="mt-4 text-slate-600 leading-relaxed">
+            <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:mt-4 sm:text-base">
               Để lại thông tin sản phẩm dự kiến. Chuyên viên dự án OEM/ODM của
               Khánh An Foods sẽ liên hệ tư vấn công thức, MOQ và gửi dự toán sơ
               bộ trong vòng 24 giờ làm việc.
             </p>
 
-            <div className="mt-8 space-y-4">
-              <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-white p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:mt-8 sm:grid-cols-2 lg:grid-cols-1 lg:gap-4">
+              <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-white p-3.5 sm:p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
                   <Phone className="h-5 w-5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs text-slate-500">Hotline dự án B2B</p>
-                  <p className="font-semibold text-slate-900">0829387980</p>
+                  <p className="truncate text-sm font-semibold text-slate-900 sm:text-base">
+                    0829387980
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-white p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+              <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-white p-3.5 sm:p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
                   <Mail className="h-5 w-5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs text-slate-500">Email nhận Brief</p>
-                  <p className="font-semibold text-slate-900">
+                  <p className="truncate text-sm font-semibold text-slate-900 sm:text-base">
                     khanh.nd@khanhanfoods.com
                   </p>
                 </div>
@@ -99,13 +103,13 @@ export function OemInquiryForm() {
 
           {/* Right Form Column */}
           <div className="lg:col-span-7">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
               {isSuccess ? (
-                <div className="py-10 text-center">
+                <div className="py-8 text-center sm:py-10">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
                     <CheckCircle2 className="h-8 w-8" />
                   </div>
-                  <h3 className="mt-4 text-xl font-bold text-slate-900">
+                  <h3 className="mt-4 text-lg font-bold text-slate-900 sm:text-xl">
                     Đã tiếp nhận yêu cầu thành công!
                   </h3>
                   <p className="mt-2 text-sm text-slate-600">
@@ -115,14 +119,17 @@ export function OemInquiryForm() {
                   <button
                     type="button"
                     onClick={() => setIsSuccess(false)}
-                    className="mt-6 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-amber-400"
+                    className="mt-6 w-full rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-amber-400 sm:w-auto"
                   >
                     Gửi thêm yêu cầu khác
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="grid gap-5 sm:grid-cols-2">
+                <form
+                  onSubmit={handleSubmit}
+                  className="space-y-4 sm:space-y-5"
+                >
+                  <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
                     <div>
                       <label className="mb-1.5 block text-sm font-medium text-slate-700">
                         Tên công ty / Thương hiệu *
@@ -132,10 +139,13 @@ export function OemInquiryForm() {
                         required
                         value={formData.companyName}
                         onChange={(e) =>
-                          setFormData({ ...formData, companyName: e.target.value })
+                          setFormData({
+                            ...formData,
+                            companyName: e.target.value,
+                          })
                         }
                         placeholder="VD: Công ty TNHH Thực Phẩm ABC"
-                        className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        className={INPUT_CLASS}
                       />
                     </div>
 
@@ -148,15 +158,18 @@ export function OemInquiryForm() {
                         required
                         value={formData.contactName}
                         onChange={(e) =>
-                          setFormData({ ...formData, contactName: e.target.value })
+                          setFormData({
+                            ...formData,
+                            contactName: e.target.value,
+                          })
                         }
                         placeholder="Họ và tên"
-                        className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        className={INPUT_CLASS}
                       />
                     </div>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
                     <div>
                       <label className="mb-1.5 block text-sm font-medium text-slate-700">
                         Số điện thoại / Zalo *
@@ -169,7 +182,7 @@ export function OemInquiryForm() {
                           setFormData({ ...formData, phone: e.target.value })
                         }
                         placeholder="0901 234 567"
-                        className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        className={INPUT_CLASS}
                       />
                     </div>
 
@@ -185,12 +198,12 @@ export function OemInquiryForm() {
                           setFormData({ ...formData, email: e.target.value })
                         }
                         placeholder="name@company.com"
-                        className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        className={INPUT_CLASS}
                       />
                     </div>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
                     <div>
                       <label className="mb-1.5 block text-sm font-medium text-slate-700">
                         Hình thức hợp tác *
@@ -203,7 +216,7 @@ export function OemInquiryForm() {
                             serviceType: e.target.value as ServiceType,
                           })
                         }
-                        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        className={INPUT_CLASS}
                       >
                         <option value="OEM">OEM (Đã có công thức)</option>
                         <option value="ODM">ODM (R&D trọn gói)</option>
@@ -223,7 +236,7 @@ export function OemInquiryForm() {
                             productCategory: e.target.value,
                           })
                         }
-                        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        className={INPUT_CLASS}
                       >
                         <option value="Chế biến từ Surimi & Hải sản">
                           Chế biến từ Surimi & Hải sản
@@ -239,7 +252,7 @@ export function OemInquiryForm() {
                     </div>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
                     <div>
                       <label className="mb-1.5 block text-sm font-medium text-slate-700">
                         Sản lượng dự kiến / tháng
@@ -254,7 +267,7 @@ export function OemInquiryForm() {
                           })
                         }
                         placeholder="VD: 500kg - 2 tấn / tháng"
-                        className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        className={INPUT_CLASS}
                       />
                     </div>
 
@@ -272,7 +285,7 @@ export function OemInquiryForm() {
                           })
                         }
                         placeholder="VD: Túi hút chân không 500g"
-                        className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                        className={INPUT_CLASS}
                       />
                     </div>
                   </div>
@@ -288,7 +301,7 @@ export function OemInquiryForm() {
                         setFormData({ ...formData, note: e.target.value })
                       }
                       placeholder="Chia sẻ thêm thông tin để đội ngũ R&D chuẩn bị phương án phù hợp nhất..."
-                      className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                      className={INPUT_CLASS}
                     />
                   </div>
 
@@ -301,10 +314,12 @@ export function OemInquiryForm() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-6 py-3.5 text-base font-semibold text-slate-950 shadow-sm transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-6 py-3.5 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
                   >
                     <Send className="h-4 w-4" />
-                    {isSubmitting ? "Đang gửi yêu cầu..." : "Gửi yêu cầu báo giá"}
+                    {isSubmitting
+                      ? "Đang gửi yêu cầu..."
+                      : "Gửi yêu cầu báo giá"}
                   </button>
                 </form>
               )}

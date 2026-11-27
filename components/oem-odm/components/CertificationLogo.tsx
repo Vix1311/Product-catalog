@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { CertificationItem } from "../types/oem.types";
 
 interface CertificationLogoProps {
@@ -6,10 +5,9 @@ interface CertificationLogoProps {
 }
 
 export function CertificationLogo({ cert }: CertificationLogoProps) {
-  // Ưu tiên render file logo thật (PNG/SVG nền trong suốt từ Cloudinary hoặc /public)
   if (cert.logoUrl) {
     return (
-      <div className="flex h-20 w-24 shrink-0 items-center justify-center overflow-hidden">
+      <div className="flex h-12 w-14 shrink-0 items-center justify-center overflow-hidden sm:h-20 sm:w-24">
         <img
           src={cert.logoUrl}
           alt={`Chứng nhận ${cert.label}`}
@@ -19,13 +17,12 @@ export function CertificationLogo({ cert }: CertificationLogoProps) {
     );
   }
 
-  // Fallback: Con dấu SVG vector dùng ngay cho giao diện
   switch (cert.code) {
     case "ISO_22000":
       return (
         <svg
           viewBox="0 0 120 120"
-          className="h-16 w-16"
+          className="h-12 w-12 sm:h-16 sm:w-16"
           aria-label="ISO 22000:2018"
         >
           <circle
@@ -81,7 +78,11 @@ export function CertificationLogo({ cert }: CertificationLogoProps) {
 
     case "HACCP":
       return (
-        <svg viewBox="0 0 120 120" className="h-16 w-16" aria-label="HACCP">
+        <svg
+          viewBox="0 0 120 120"
+          className="h-12 w-12 sm:h-16 sm:w-16"
+          aria-label="HACCP"
+        >
           <circle
             cx="60"
             cy="60"
@@ -131,7 +132,11 @@ export function CertificationLogo({ cert }: CertificationLogoProps) {
 
     case "VSATTP":
       return (
-        <svg viewBox="0 0 120 120" className="h-16 w-16" aria-label="VSATTP">
+        <svg
+          viewBox="0 0 120 120"
+          className="h-12 w-12 sm:h-16 sm:w-16"
+          aria-label="VSATTP"
+        >
           <path
             d="M60 10 L102 26 V58 C102 84 84 102 60 112 C36 102 18 84 18 58 V26 Z"
             fill="#ECFDF5"
@@ -161,7 +166,11 @@ export function CertificationLogo({ cert }: CertificationLogoProps) {
 
     case "HALAL":
       return (
-        <svg viewBox="0 0 120 120" className="h-16 w-16" aria-label="HALAL">
+        <svg
+          viewBox="0 0 120 120"
+          className="h-12 w-12 sm:h-16 sm:w-16"
+          aria-label="HALAL"
+        >
           <circle
             cx="60"
             cy="60"
