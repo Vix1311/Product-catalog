@@ -14,6 +14,8 @@ export default function PartnerSection() {
     { id: 4, name: "AEON Mall", logoUrl: "https://cdn1.vieclam24h.vn/images/employer_avatar/2026/06/17/aeon_178166124526.png" },
     { id: 5, name: "King BBQ", logoUrl: "https://scvivocity.com.vn/wp-content/uploads/2026/05/KING-Logo-Vua-nuong-HQ-chu-den.png" },
     { id: 6, name: "Lotus Group", logoUrl: "https://lotusgroup.com.vn/wp-content/uploads/2020/09/logo.png" },
+    { id: 7, name: "Lotte Mart", logoUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR7Kcq-pdhKewyDsK7vBbRzhugcmHz653jPhXdvQkOJMfSsfXTjxgE70FI&s=10" },
+    { id: 8, name: "Emart", logoUrl: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/55/Emart_Logo.svg/3840px-Emart_Logo.svg.png?utm_source=vi.wikipedia.org&utm_campaign=index&utm_content=thumbnail" },
   ];
 
   return (
@@ -26,7 +28,7 @@ export default function PartnerSection() {
         </div>
 
         {/* Grid chia viền 6 ô */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 border-t border-l border-white/15">
+        <div className="grid grid-cols-2 lg:grid-cols-4 border-t border-l border-white/15">
           {partners.map((partner) => (
             <div
               key={partner.id}
